@@ -51,4 +51,34 @@ ascDescToString ascDesc =
 
 ropeToString : Rope String -> String
 ropeToString input =
-    Rope.foldl (\e acc -> acc ++ " " ++ e) "" input
+    let
+        toIndentationString : Int -> String
+        toIndentationString indentation =
+            String.repeat indentation "  "
+    in
+    Rope.foldl
+        (\e ( acc, indentation ) ->
+            case e of
+                "(" ->
+                    ( acc ++ " " ++ e ++ "\n" ++ toIndentationString (indentation + 1)
+                    , indentation + 1
+                    )
+
+                "," ->
+                    ( acc ++ e ++ "\n" ++ toIndentationString indentation
+                    , indentation
+                    )
+
+                ")" ->
+                    ( acc ++ "\n" ++ toIndentationString (indentation - 1) ++ e
+                    , indentation - 1
+                    )
+
+                _ ->
+                    ( acc ++ " " ++ e
+                    , indentation
+                    )
+        )
+        ( "", 0 )
+        input
+        |> Tuple.first

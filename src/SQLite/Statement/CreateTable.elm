@@ -194,7 +194,7 @@ innerTableConstraintToRope constraint =
                 |> Rope.append ")"
                 |> Rope.prependTo (maybe_ conflictClauseToRope conflictClause)
 
-        TableUnique columns conflictClause ->
+        TableUnique _ _ ->
             Debug.todo "innerTableConstraintToRope - branch 'TableUnique _ _' not implemented"
 
         TableCheck _ ->
