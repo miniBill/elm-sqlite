@@ -184,7 +184,8 @@ innerTableConstraintToRope constraint =
     case constraint of
         TablePrimaryKey columns conflictClause ->
             Rope.empty
-                |> Rope.append "PRIMARY KEY ("
+                |> Rope.append "PRIMARY KEY"
+                |> Rope.append "("
                 |> Rope.prependTo
                     (columns
                         |> List.map indexedColumnToRope
