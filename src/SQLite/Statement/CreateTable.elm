@@ -1,4 +1,4 @@
-module SQLite.Statement.CreateTable exposing (ColumnConstraint(..), ColumnDefinition, ConflictClause(..), ForeignKeyClause(..), GeneratedColumnStorage(..), IndexedColumn, InnerColumnConstraint(..), InnerTableConstraint(..), NameOrExpr(..), Statement, TableConstraint(..), TableDefinition(..), TableOptions, toRope)
+module SQLite.Statement.CreateTable exposing (ColumnConstraint, ColumnDefinition, ConflictClause(..), ForeignKeyClause, GeneratedColumnStorage(..), IndexedColumn, InnerColumnConstraint(..), InnerTableConstraint(..), NameOrExpr(..), OnDeleteUpdate(..), Statement, TableConstraint, TableDefinition(..), TableOptions, toRope)
 
 import Rope exposing (Rope)
 import Rope.Extra
@@ -120,12 +120,12 @@ columnDefinitionToRope def =
 
 columnConstraintToRope : ColumnConstraint -> Rope String
 columnConstraintToRope constraint =
-    case constraint of
-        NamedColumnConstraint name inner ->
-            Rope.prepend "CONSTRAINT" (Rope.prepend name (innerColumnConstraintToRope inner))
+    case constraint.name of
+        Just name ->
+            Rope.prepend "CONSTRAINT" (Rope.prepend name (innerColumnConstraintToRope constraint.constraint))
 
-        UnnamedColumnConstraint inner ->
-            innerColumnConstraintToRope inner
+        Nothing ->
+            innerColumnConstraintToRope constraint.constraint
 
 
 innerColumnConstraintToRope : InnerColumnConstraint -> Rope String
@@ -157,34 +157,33 @@ innerColumnConstraintToRope constraint =
         ColumnCollate _ ->
             Debug.todo "innerColumnConstraintToRope - branch 'ColumnCollate _' not implemented"
 
-        ColumnForeignKey _ ->
-            Debug.todo "innerColumnConstraintToRope - branch 'ColumnForeignKey _' not implemented"
+        ColumnForeignKey foreignKeyClause ->
+            foreignKeyClauseToRope foreignKeyClause
 
         GeneratedAs _ _ _ ->
             Debug.todo "innerColumnConstraintToRope - branch 'GeneratedAs _ _ _' not implemented"
 
 
 conflictClauseToRope : ConflictClause -> Rope String
-conflictClauseToRope arg1 =
+conflictClauseToRope _ =
     Debug.todo "conflictClauseToRope"
 
 
 tableConstraintToRope : TableConstraint -> Rope String
 tableConstraintToRope constraint =
-    case constraint of
-        NamedTableConstraint name inner ->
-            Rope.prepend "CONSTRAINT" (Rope.prepend name (innerTableConstraintToRope inner))
+    case constraint.name of
+        Just name ->
+            Rope.prepend "CONSTRAINT" (Rope.prepend name (innerTableConstraintToRope constraint.constraint))
 
-        UnnamedTableConstraint inner ->
-            innerTableConstraintToRope inner
+        Nothing ->
+            innerTableConstraintToRope constraint.constraint
 
 
 innerTableConstraintToRope : InnerTableConstraint -> Rope String
 innerTableConstraintToRope constraint =
     case constraint of
         TablePrimaryKey columns conflictClause ->
-            Rope.empty
-                |> Rope.append "PRIMARY KEY"
+            Rope.singleton "PRIMARY KEY"
                 |> Rope.append "("
                 |> Rope.prependTo
                     (columns
@@ -201,8 +200,62 @@ innerTableConstraintToRope constraint =
         TableCheck _ ->
             Debug.todo "innerTableConstraintToRope - branch 'TableCheck _' not implemented"
 
-        TableForeignKey _ _ ->
-            Debug.todo "innerTableConstraintToRope - branch 'TableForeignKey _ _' not implemented"
+        TableForeignKey columns foreignKeyClause ->
+            Rope.singleton "FOREIGN KEY"
+                |> appendColumnList columns
+                |> Rope.prependTo (foreignKeyClauseToRope foreignKeyClause)
+
+
+foreignKeyClauseToRope : ForeignKeyClause -> Rope String
+foreignKeyClauseToRope clause =
+    Rope.singleton "REFERENCES"
+        |> Rope.append clause.foreignTable
+        |> (if List.isEmpty clause.columnNames then
+                identity
+
+            else
+                appendColumnList clause.columnNames
+           )
+        |> (case clause.onDelete of
+                Nothing ->
+                    identity
+
+                Just _ ->
+                    Debug.todo "foreignKeyClauseToRope - onDelete - branch 'Just _' not implemented"
+           )
+        |> (case clause.onUpdate of
+                Nothing ->
+                    identity
+
+                Just _ ->
+                    Debug.todo "foreignKeyClauseToRope - onUpdate - branch 'Just _' not implemented"
+           )
+        |> (case clause.match of
+                Nothing ->
+                    identity
+
+                Just _ ->
+                    Debug.todo "foreignKeyClauseToRope - match - branch 'Just _' not implemented"
+           )
+        |> (case clause.defer of
+                Nothing ->
+                    identity
+
+                Just ever ->
+                    never ever
+           )
+
+
+appendColumnList : List String -> Rope String -> Rope String
+appendColumnList list rope =
+    rope
+        |> Rope.append "("
+        |> Rope.prependTo
+            (list
+                |> List.intersperse ","
+                |> Rope.fromList
+            )
+        |> Rope.append ")"
 
 
 indexedColumnToRope : IndexedColumn -> Rope String
@@ -243,9 +296,10 @@ type alias ColumnDefinition =
     }
 
 
-type ColumnConstraint
-    = NamedColumnConstraint String InnerColumnConstraint
-    | UnnamedColumnConstraint InnerColumnConstraint
+type alias ColumnConstraint =
+    { name : Maybe String
+    , constraint : InnerColumnConstraint
+    }
 
 
 type InnerColumnConstraint
@@ -264,9 +318,10 @@ type GeneratedColumnStorage
     | Virtual
 
 
-type TableConstraint
-    = NamedTableConstraint String InnerTableConstraint
-    | UnnamedTableConstraint InnerTableConstraint
+type alias TableConstraint =
+    { name : Maybe String
+    , constraint : InnerTableConstraint
+    }
 
 
 type InnerTableConstraint
@@ -296,8 +351,22 @@ type ConflictClause
     | OnConflictReplace
 
 
-type ForeignKeyClause
-    = ForeignKeyClause Never
+type alias ForeignKeyClause =
+    { foreignTable : String
+    , columnNames : List String
+    , onDelete : Maybe OnDeleteUpdate
+    , onUpdate : Maybe OnDeleteUpdate
+    , match : Maybe String
+    , defer : Maybe Never
+    }
+
+
+type OnDeleteUpdate
+    = SetNull
+    | SetDefault
+    | Cascade
+    | Restrict
+    | NoAction
 
 
 type alias TableOptions =
