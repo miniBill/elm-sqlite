@@ -151,8 +151,15 @@ innerColumnConstraintToRope constraint =
         ColumnCheck _ ->
             Debug.todo "innerColumnConstraintToRope - branch 'ColumnCheck _' not implemented"
 
-        ColumnDefault _ ->
-            Debug.todo "innerColumnConstraintToRope - branch 'ColumnDefault _' not implemented"
+        ColumnDefault (Expr.LiteralValue literal) ->
+            Rope.singleton "DEFAULT"
+                |> Rope.append (Expr.literalValueToString literal)
+
+        ColumnDefault value ->
+            Rope.singleton "DEFAULT"
+                |> Rope.append "("
+                |> Rope.prependTo (Expr.toRope value)
+                |> Rope.append ")"
 
         ColumnCollate _ ->
             Debug.todo "innerColumnConstraintToRope - branch 'ColumnCollate _' not implemented"
@@ -173,7 +180,10 @@ tableConstraintToRope : TableConstraint -> Rope String
 tableConstraintToRope constraint =
     case constraint.name of
         Just name ->
-            Rope.prepend "CONSTRAINT" (Rope.prepend name (innerTableConstraintToRope constraint.constraint))
+            Rope.singleton "CONSTRAINT"
+                |> Rope.append name
+                |> Rope.prependTo
+                    (innerTableConstraintToRope constraint.constraint)
 
         Nothing ->
             innerTableConstraintToRope constraint.constraint

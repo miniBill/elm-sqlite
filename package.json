@@ -3,5 +3,10 @@
         "elm-review": "^2.12.0",
         "elm-test": "^0.19.1-revision12"
     },
+    "dependencies": {
+        "@sqlite.org/sqlite-wasm": "^3.46.0-build2",
+        "sqlite-wasm-http": "^1.2.0",
+        "sqlite3": "^5.1.7"
+    },
     "license": "BSD-3-Clause"
 }
