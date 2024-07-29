@@ -60,7 +60,11 @@ ropeToString input =
         (\e ( acc, indentation ) ->
             case e of
                 "(" ->
-                    ( acc ++ " " ++ e ++ "\n" ++ toIndentationString (indentation + 1)
+                    ( if String.isEmpty acc || String.endsWith " " acc || String.endsWith "\n" acc then
+                        acc ++ e ++ "\n" ++ toIndentationString (indentation + 1)
+
+                      else
+                        acc ++ " " ++ e ++ "\n" ++ toIndentationString (indentation + 1)
                     , indentation + 1
                     )
 
@@ -75,7 +79,11 @@ ropeToString input =
                     )
 
                 _ ->
-                    ( acc ++ " " ++ e
+                    ( if String.isEmpty acc || String.endsWith " " acc || String.endsWith "\n" acc then
+                        acc ++ e
+
+                      else
+                        acc ++ " " ++ e
                     , indentation
                     )
         )
