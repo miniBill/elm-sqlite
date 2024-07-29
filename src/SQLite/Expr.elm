@@ -1,6 +1,7 @@
 module SQLite.Expr exposing (Expr(..), LiteralValue(..), literalValueToString, toRope)
 
-import Json.Encode
+import Bytes exposing (Bytes)
+import Hex.Convert
 import Rope exposing (Rope)
 
 
@@ -12,7 +13,7 @@ type Expr
 type LiteralValue
     = NumericLiteral Float
     | StringLiteral String
-    | BlobLiteral Never
+    | BlobLiteral Bytes
     | Null
     | True
     | False
@@ -38,30 +39,25 @@ literalValueToString literal =
             String.fromFloat numeric
 
         StringLiteral s ->
-            let
-                -- This is WRONG and BAD
-                _ =
-                    Debug.todo
-            in
-            Json.Encode.encode 0 (Json.Encode.string s)
+            "'" ++ String.replace "'" "''" s ++ "'"
 
-        BlobLiteral _ ->
-            Debug.todo "literalValueToString - branch 'BlobLiteral _' not implemented"
+        BlobLiteral bytes ->
+            "X'" ++ Hex.Convert.toString bytes ++ "'"
 
         Null ->
-            Debug.todo "literalValueToString - branch 'Null' not implemented"
+            "NULL"
 
         True ->
-            Debug.todo "literalValueToString - branch 'True' not implemented"
+            "TRUE"
 
         False ->
-            Debug.todo "literalValueToString - branch 'False' not implemented"
+            "FALSE"
 
         CurrentTime ->
-            Debug.todo "literalValueToString - branch 'CurrentTime' not implemented"
+            "CURRENT_TIME"
 
         CurrentDate ->
-            Debug.todo "literalValueToString - branch 'CurrentDate' not implemented"
+            "CURRENT_DATE"
 
         CurrentTimestamp ->
-            Debug.todo "literalValueToString - branch 'CurrentTimestamp' not implemented"
+            "CURRENT_TIMESTAMP"
