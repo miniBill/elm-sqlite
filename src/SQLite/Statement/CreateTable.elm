@@ -1,10 +1,10 @@
-module SQLite.Statement.CreateTable exposing (ColumnConstraint, ColumnDefinition, ConflictClause(..), ForeignKeyClause, GeneratedColumnStorage(..), IndexedColumn, InnerColumnConstraint(..), InnerTableConstraint(..), NameOrExpr(..), OnDeleteUpdate(..), Statement, TableConstraint, TableDefinition(..), TableOptions, toRope)
+module SQLite.Statement.CreateTable exposing (ColumnConstraint, ColumnDefinition, ForeignKeyClause, GeneratedColumnStorage(..), IndexedColumn, InnerColumnConstraint(..), InnerTableConstraint(..), NameOrExpr(..), OnDeleteUpdate(..), Statement, TableConstraint, TableDefinition(..), TableOptions, toRope)
 
 import Rope exposing (Rope)
 import Rope.Extra
 import SQLite.Expr as Expr exposing (Expr)
 import SQLite.Statement.Select as Select
-import SQLite.Types as Types exposing (AscDesc, Type)
+import SQLite.Types as Types exposing (AscDesc, ConflictClause, Type)
 
 
 type alias Statement =
@@ -341,14 +341,6 @@ type alias IndexedColumn =
 type NameOrExpr
     = IsName String
     | IsExpr Expr
-
-
-type ConflictClause
-    = OnConflictRollback
-    | OnConflictAbort
-    | OnConflictFail
-    | OnConflictIgnore
-    | OnConflictReplace
 
 
 type alias ForeignKeyClause =

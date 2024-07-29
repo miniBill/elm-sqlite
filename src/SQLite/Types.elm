@@ -1,4 +1,4 @@
-module SQLite.Types exposing (AscDesc(..), Type(..), ascDescToString, ropeToString, typeToString)
+module SQLite.Types exposing (AscDesc(..), ConflictClause(..), Type(..), ascDescToString, ropeToString, typeToString)
 
 import Rope exposing (Rope)
 
@@ -90,3 +90,11 @@ ropeToString input =
         ( "", 0 )
         input
         |> Tuple.first
+
+
+type ConflictClause
+    = Rollback
+    | Abort
+    | Fail
+    | Ignore
+    | Replace
