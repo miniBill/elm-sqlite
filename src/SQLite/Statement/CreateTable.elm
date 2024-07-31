@@ -5,7 +5,7 @@ import Rope exposing (Rope)
 import Rope.Extra
 import SQLite.Expr as Expr exposing (Expr)
 import SQLite.Statement.Select as Select
-import SQLite.Types as Types exposing (AscDesc, ConflictClause, Type)
+import SQLite.Types as Types exposing (AscDesc, ConflictClause(..), Type)
 
 
 type alias Statement =
@@ -58,8 +58,8 @@ iif condition text =
         Rope.empty
 
 
-maybe : (a -> b) -> Maybe a -> Rope b
-maybe f val =
+maybeToString : (a -> b) -> Maybe a -> Rope b
+maybeToString f val =
     case val of
         Nothing ->
             Rope.empty
@@ -68,8 +68,8 @@ maybe f val =
             Rope.singleton (f v)
 
 
-maybe_ : (a -> Rope b) -> Maybe a -> Rope b
-maybe_ f val =
+maybe : (a -> Rope b) -> Maybe a -> Rope b
+maybe f val =
     case val of
         Nothing ->
             Rope.empty
@@ -111,7 +111,7 @@ columnDefinitionToRope : ColumnDefinition -> Rope String
 columnDefinitionToRope def =
     Rope.prepend def.name
         (Rope.appendTo
-            (maybe Types.typeToString def.tipe)
+            (maybeToString Types.typeToString def.tipe)
             (Rope.concatMap
                 columnConstraintToRope
                 (Rope.fromList def.constraints)
@@ -133,24 +133,24 @@ innerColumnConstraintToRope : InnerColumnConstraint -> Rope String
 innerColumnConstraintToRope constraint =
     case constraint of
         ColumnPrimaryKey ascDesc conflictClause { autoIncrement } ->
-            [ Rope.singleton "PRIMARY KEY"
-            , maybe Types.ascDescToString ascDesc
-            , maybe_ conflictClauseToRope conflictClause
-            , iif autoIncrement "AUTOINCREMENT"
-            ]
-                |> fromTokens
+            Rope.singleton "PRIMARY KEY"
+                |> Rope.prependTo (maybeToString Types.ascDescToString ascDesc)
+                |> Rope.prependTo (maybe conflictClauseToRope conflictClause)
+                |> Rope.prependTo (iif autoIncrement "AUTOINCREMENT")
 
         ColumnNotNull conflictClause ->
-            [ Rope.singleton "NOT NULL"
-            , maybe_ conflictClauseToRope conflictClause
-            ]
-                |> fromTokens
+            Rope.singleton "NOT NULL"
+                |> Rope.prependTo (maybe conflictClauseToRope conflictClause)
 
-        ColumnUnique _ ->
-            Debug.todo "innerColumnConstraintToRope - branch 'ColumnUnique _' not implemented"
+        ColumnUnique conflictClause ->
+            Rope.singleton "UNIQUE"
+                |> Rope.prependTo (maybe conflictClauseToRope conflictClause)
 
-        ColumnCheck _ ->
-            Debug.todo "innerColumnConstraintToRope - branch 'ColumnCheck _' not implemented"
+        ColumnCheck expr ->
+            Rope.singleton "CHECK"
+                |> Rope.append "("
+                |> Rope.prependTo (Expr.toRope expr)
+                |> Rope.append ")"
 
         ColumnDefault (Expr.LiteralValue literal) ->
             Rope.singleton "DEFAULT"
@@ -162,19 +162,57 @@ innerColumnConstraintToRope constraint =
                 |> Rope.prependTo (Expr.toRope value)
                 |> Rope.append ")"
 
-        ColumnCollate _ ->
-            Debug.todo "innerColumnConstraintToRope - branch 'ColumnCollate _' not implemented"
+        ColumnCollate name ->
+            Rope.singleton "COLLATE"
+                |> Rope.append name
 
         ColumnForeignKey foreignKeyClause ->
             foreignKeyClauseToRope foreignKeyClause
 
-        GeneratedAs _ _ _ ->
-            Debug.todo "innerColumnConstraintToRope - branch 'GeneratedAs _ _ _' not implemented"
+        GeneratedAs { always } expr storage ->
+            (if always then
+                Rope.singleton "GENERATED ALWAYS"
+
+             else
+                Rope.empty
+            )
+                |> Rope.append "AS"
+                |> Rope.append "("
+                |> Rope.prependTo (Expr.toRope expr)
+                |> Rope.append ")"
+                |> appendMaybe storageToString storage
+
+
+storageToString : GeneratedColumnStorage -> Rope String
+storageToString storage =
+    case storage of
+        Stored ->
+            Rope.singleton "STORED"
+
+        Virtual ->
+            Rope.singleton "VIRTUAL"
 
 
 conflictClauseToRope : ConflictClause -> Rope String
-conflictClauseToRope _ =
-    Debug.todo "conflictClauseToRope"
+conflictClauseToRope clause =
+    Rope.singleton "ON CONFLICT"
+        |> Rope.append
+            (case clause of
+                Rollback ->
+                    "ROLLBACK"
+
+                Abort ->
+                    "ABORT"
+
+                Fail ->
+                    "FAIL"
+
+                Ignore ->
+                    "IGNORE"
+
+                Replace ->
+                    "REPLACE"
+            )
 
 
 tableConstraintToRope : TableConstraint -> Rope String
@@ -203,13 +241,25 @@ innerTableConstraintToRope constraint =
                         |> fromTokens
                     )
                 |> Rope.append ")"
-                |> Rope.prependTo (maybe_ conflictClauseToRope conflictClause)
+                |> Rope.prependTo (maybe conflictClauseToRope conflictClause)
 
-        TableUnique _ _ ->
-            Debug.todo "innerTableConstraintToRope - branch 'TableUnique _ _' not implemented"
+        TableUnique columns conflictClause ->
+            Rope.singleton "UNIQUE"
+                |> Rope.append "("
+                |> Rope.prependTo
+                    (columns
+                        |> List.map indexedColumnToRope
+                        |> List.intersperse (Rope.singleton ",")
+                        |> fromTokens
+                    )
+                |> Rope.append ")"
+                |> Rope.prependTo (maybe conflictClauseToRope conflictClause)
 
-        TableCheck _ ->
-            Debug.todo "innerTableConstraintToRope - branch 'TableCheck _' not implemented"
+        TableCheck expr ->
+            Rope.singleton "CHECK"
+                |> Rope.append "("
+                |> Rope.prependTo (Expr.toRope expr)
+                |> Rope.append ")"
 
         TableForeignKey columns foreignKeyClause ->
             Rope.singleton "FOREIGN KEY"
@@ -227,27 +277,24 @@ foreignKeyClauseToRope clause =
             else
                 appendColumnList clause.columnNames
            )
-        |> (case clause.onDelete of
-                Nothing ->
-                    identity
-
-                Just _ ->
-                    Debug.todo "foreignKeyClauseToRope - onDelete - branch 'Just _' not implemented"
-           )
-        |> (case clause.onUpdate of
-                Nothing ->
-                    identity
-
-                Just _ ->
-                    Debug.todo "foreignKeyClauseToRope - onUpdate - branch 'Just _' not implemented"
-           )
-        |> (case clause.match of
-                Nothing ->
-                    identity
-
-                Just _ ->
-                    Debug.todo "foreignKeyClauseToRope - match - branch 'Just _' not implemented"
-           )
+        |> appendMaybe
+            (\onDelete ->
+                Rope.singleton "ON DELETE"
+                    |> Rope.append (onDeleteUpdateToString onDelete)
+            )
+            clause.onDelete
+        |> appendMaybe
+            (\onUpdate ->
+                Rope.singleton "ON UPDATE"
+                    |> Rope.append (onDeleteUpdateToString onUpdate)
+            )
+            clause.onUpdate
+        |> appendMaybe
+            (\name ->
+                Rope.singleton "MATCH"
+                    |> Rope.append name
+            )
+            clause.match
         |> (case clause.defer of
                 Nothing ->
                     identity
@@ -255,6 +302,12 @@ foreignKeyClauseToRope clause =
                 Just ever ->
                     never ever
            )
+
+
+appendMaybe : (a -> Rope b) -> Maybe a -> Rope b -> Rope b
+appendMaybe f tail head =
+    head
+        |> Rope.prependTo (maybe f tail)
 
 
 appendColumnList : List String -> Rope String -> Rope String
@@ -288,7 +341,7 @@ indexedColumnToRope column =
                 Just name ->
                     Rope.singleton ("COLLATE " ++ name)
             )
-        |> Rope.prependTo (maybe Types.ascDescToString column.ascDesc)
+        |> Rope.prependTo (maybeToString Types.ascDescToString column.ascDesc)
 
 
 tableOptionsToRope : TableOptions -> Rope String
@@ -370,6 +423,25 @@ type OnDeleteUpdate
     | Cascade
     | Restrict
     | NoAction
+
+
+onDeleteUpdateToString : OnDeleteUpdate -> String
+onDeleteUpdateToString onDeleteUpdate =
+    case onDeleteUpdate of
+        SetNull ->
+            "SET NULL"
+
+        SetDefault ->
+            "SET DEFAULT"
+
+        Cascade ->
+            "CASCADE"
+
+        Restrict ->
+            "RESTRICT"
+
+        NoAction ->
+            "NO ACTION"
 
 
 type alias TableOptions =
