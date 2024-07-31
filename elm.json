@@ -1,26 +1,28 @@
 {
-    "type": "application",
-    "source-directories": [
-        "src"
+    "name": "miniBill/elm-sqlite",
+    "license": "BSD-3-Clause",
+    "summary": "A library for typesafe interaction with SQLite",
+    "version": "1.0.0",
+    "exposed-modules": [
+        "SQLite.Statement.Select",
+        "SQLite.Statement.CreateTable",
+        "SQLite.Expr",
+        "SQLite.Statement",
+        "SQLite.Types"
     ],
-    "elm-version": "0.19.1",
+    "type": "package",
+    "source-directories": ["src"],
+    "elm-version": "0.19.0 <= v < 0.20.0",
     "dependencies": {
-        "direct": {
-            "elm/bytes": "1.0.8",
-            "elm/core": "1.0.3",
-            "elm/json": "1.1.3",
-            "elm/parser": "1.1.0",
-            "jxxcarlson/hex": "4.0.0",
-            "miniBill/elm-rope": "1.0.0",
-            "pithub/elm-parser-bug-workaround": "1.0.0"
-        },
-        "indirect": {
-            "elm-community/list-extra": "8.7.0",
-            "pithub/elm-parser-extra": "1.0.0"
-        }
+        "elm/bytes": "1.0.0 <= v < 2.0.0",
+        "elm/core": "1.0.0 <= v < 2.0.0",
+        "elm/json": "1.1.0 <= v < 2.0.0",
+        "elm/parser": "1.1.0 <= v < 2.0.0",
+        "jxxcarlson/hex": "4.0.0 <= v < 5.0.0",
+        "miniBill/elm-rope": "1.0.0 <= v < 2.0.0",
+        "pithub/elm-parser-bug-workaround": "1.0.0 <= v < 2.0.0"
     },
     "test-dependencies": {
-        "direct": {},
-        "indirect": {}
+        "elm-explorations/test": "2.2.0 <= v < 3.0.0"
     }
 }
