@@ -1,5 +1,6 @@
-module SQLite.Statement.CreateTable exposing (ColumnConstraint, ColumnDefinition, ForeignKeyClause, GeneratedColumnStorage(..), IndexedColumn, InnerColumnConstraint(..), InnerTableConstraint(..), NameOrExpr(..), OnDeleteUpdate(..), Statement, TableConstraint, TableDefinition(..), TableOptions, toRope)
+module SQLite.Statement.CreateTable exposing (ColumnConstraint, ColumnDefinition, ForeignKeyClause, GeneratedColumnStorage(..), IndexedColumn, InnerColumnConstraint(..), InnerTableConstraint(..), NameOrExpr(..), OnDeleteUpdate(..), Statement, TableConstraint, TableDefinition(..), TableOptions, parser, toRope)
 
+import Parser exposing (Parser)
 import Rope exposing (Rope)
 import Rope.Extra
 import SQLite.Expr as Expr exposing (Expr)
@@ -375,3 +376,8 @@ type alias TableOptions =
     { withoutRowid : Bool
     , strict : Bool
     }
+
+
+parser : Parser Statement
+parser =
+    Parser.problem "CreateTable.parser"
