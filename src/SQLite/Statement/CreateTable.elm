@@ -1,6 +1,7 @@
 module SQLite.Statement.CreateTable exposing (ColumnConstraint, ColumnDefinition, ForeignKeyClause, GeneratedColumnStorage(..), IndexedColumn, InnerColumnConstraint(..), InnerTableConstraint(..), NameOrExpr(..), OnDeleteUpdate(..), Statement, TableConstraint, TableDefinition(..), TableOptions, parser, toRope)
 
-import Parser exposing (Parser)
+import Parser exposing ((|.), (|=), Parser)
+import Parser.Extra as Parser
 import Rope exposing (Rope)
 import Rope.Extra
 import SQLite.Expr as Expr exposing (Expr)
@@ -452,4 +453,104 @@ type alias TableOptions =
 
 parser : Parser Statement
 parser =
-    Parser.problem "CreateTable.parser"
+    Parser.succeed
+        (\temporary ifNotExists ( schemaName, name ) definition ->
+            { temporary = temporary
+            , ifNotExists = ifNotExists
+            , schemaName = schemaName
+            , name = name
+            , definition = definition
+            }
+        )
+        |. Parser.symbol_ "CREATE"
+        |= Parser.oneOf
+            [ Parser.succeed True
+                |. Parser.symbol_ "TEMP"
+                |. Parser.oneOf
+                    [ Parser.symbol_ "ORARY"
+                    , Parser.succeed ()
+                    ]
+            , Parser.succeed False
+            ]
+        |. Parser.symbol_ "TABLE"
+        |= Parser.oneOf
+            [ Parser.succeed True
+                |. Parser.symbol_ "IF"
+                |. Parser.symbol_ "NOT"
+                |. Parser.symbol_ "EXISTS"
+            ]
+        |= (Parser.succeed (\a f -> f a)
+                |= Parser.id
+                |= Parser.oneOf
+                    [ Parser.succeed (\t s -> ( Just s, t ))
+                        |. Parser.symbol "."
+                        |= Parser.id
+                    , Parser.succeed (\t -> ( Nothing, t ))
+                    ]
+           )
+        |= definitionParser
+
+
+definitionParser : Parser TableDefinition
+definitionParser =
+    Parser.oneOf
+        [ Parser.succeed TableDefinitionSelect
+            |. Parser.symbol_ "AS"
+            |= Select.parser
+        , Parser.succeed
+            (\columnsAndConstraints options ->
+                TableDefinitionColumns
+                    { columns =
+                        List.filterMap
+                            (\corc ->
+                                case corc of
+                                    Ok def ->
+                                        Just def
+
+                                    Err _ ->
+                                        Nothing
+                            )
+                            columnsAndConstraints
+                    , constraints =
+                        List.filterMap
+                            (\corc ->
+                                case corc of
+                                    Ok _ ->
+                                        Nothing
+
+                                    Err con ->
+                                        Just con
+                            )
+                            columnsAndConstraints
+                    , options = options
+                    }
+            )
+            |= Parser.sequence
+                { start = "("
+                , end = ")"
+                , separator = ","
+                , item =
+                    Parser.oneOf
+                        [ Parser.map Ok columnDefinitionParser
+                        , Parser.map Err tableConstraintParser
+                        ]
+                , trailing = Parser.Forbidden
+                , spaces = Parser.spaces_
+                }
+            |= tableOptionsParser
+        ]
+
+
+columnDefinitionParser : Parser ColumnDefinition
+columnDefinitionParser =
+    Parser.problem "CreateTable.columnDefinitionParser"
+
+
+tableConstraintParser : Parser TableConstraint
+tableConstraintParser =
+    Parser.problem "CreateTable.tableConstraintParser"
+
+
+tableOptionsParser : Parser TableOptions
+tableOptionsParser =
+    Parser.problem "CreateTable.tableOptionsParser"

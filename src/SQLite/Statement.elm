@@ -54,11 +54,11 @@ parser =
     Parser.succeed Statement
         |= Parser.oneOf
             [ Parser.succeed Just
-                |. Parser.keyword_ "EXPLAIN"
+                |. Parser.symbol_ "EXPLAIN"
                 |= Parser.oneOf
                     [ Parser.succeed ExplainQueryPlan
-                        |. Parser.keyword_ "QUERY"
-                        |. Parser.keyword_ "PLAN"
+                        |. Parser.symbol_ "QUERY"
+                        |. Parser.symbol_ "PLAN"
                     , Parser.succeed Explain
                     ]
             , Parser.succeed Nothing

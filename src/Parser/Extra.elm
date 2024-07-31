@@ -1,13 +1,40 @@
-module Parser.Extra exposing (keyword_)
+module Parser.Extra exposing (id, spaces_, symbol_)
 
-import Parser exposing ((|.), Parser)
+import Parser exposing ((|.), (|=), Parser)
 import Parser.Workaround
 
 
-keyword_ : String -> Parser ()
-keyword_ x =
+id : Parser String
+id =
+    Parser.oneOf
+        [ Parser.succeed (String.replace "\"\"" "\"")
+            |. Parser.symbol "\""
+            |= Parser.getChompedString
+                (Parser.chompWhile
+                    (\c ->
+                        let
+                            _ =
+                                Debug.todo
+                        in
+                        c /= '"'
+                    )
+                )
+            |. Parser.symbol "\""
+        , Parser.getChompedString
+            (let
+                _ =
+                    Debug.todo
+             in
+             Parser.chompIf Char.isAlpha
+                |. Parser.chompWhile Char.isAlpha
+            )
+        ]
+
+
+symbol_ : String -> Parser ()
+symbol_ x =
     Parser.loop (String.toList (String.toUpper x)) keywordHelp
-        |. spaces
+        |. spaces_
 
 
 keywordHelp : List Char -> Parser (Parser.Step (List Char) ())
@@ -24,8 +51,8 @@ keywordHelp queue =
                 )
 
 
-spaces : Parser (List ())
-spaces =
+spaces_ : Parser ()
+spaces_ =
     Parser.sequence
         { start = ""
         , end = ""
@@ -38,6 +65,7 @@ spaces =
         , separator = ""
         , trailing = Parser.Optional
         }
+        |> Parser.map (\_ -> ())
 
 
 multilineComment : Parser ()

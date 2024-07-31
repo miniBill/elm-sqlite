@@ -1,8 +1,8 @@
 module ParserTest exposing (suite)
 
 import Expect
-import Fuzz exposing (Fuzzer, list, string)
-import Parser
+import Fuzz exposing (Fuzzer)
+import Parser exposing ((|.))
 import SQLite.Expr
 import SQLite.Statement as Statement
 import SQLite.Statement.CreateTable as CreateTable
@@ -16,7 +16,7 @@ suite =
         \statement ->
             statement
                 |> Statement.toString
-                |> Parser.run Statement.parser
+                |> Parser.run (Statement.parser |. Parser.end)
                 |> Expect.equal (Ok statement)
 
 
@@ -76,8 +76,8 @@ createTableFuzzer =
     Fuzz.map5 CreateTable.Statement
         Fuzz.bool
         Fuzz.bool
-        (Fuzz.maybe Fuzz.string)
-        Fuzz.string
+        (Fuzz.maybe idFuzzer)
+        idFuzzer
         createTableDefinitionFuzzer
 
 
@@ -88,8 +88,8 @@ createTableDefinitionFuzzer =
             CreateTable.TableDefinitionColumns
             (Fuzz.map3
                 (\columns constraints options -> { columns = columns, constraints = constraints, options = options })
-                (list columnDefinitionFuzzer)
-                (list tableConstraintFuzzer)
+                (Fuzz.list columnDefinitionFuzzer)
+                (Fuzz.list tableConstraintFuzzer)
                 tableOptionsFuzzer
             )
 
@@ -99,7 +99,10 @@ createTableDefinitionFuzzer =
 
 columnDefinitionFuzzer : Fuzzer CreateTable.ColumnDefinition
 columnDefinitionFuzzer =
-    Fuzz.map3 CreateTable.ColumnDefinition string (Fuzz.maybe typeFuzzer) (list columnConstraintFuzzer)
+    Fuzz.map3 CreateTable.ColumnDefinition
+        idFuzzer
+        (Fuzz.maybe typeFuzzer)
+        (Fuzz.list columnConstraintFuzzer)
 
 
 typeFuzzer : Fuzzer SQLite.Types.Type
@@ -116,7 +119,9 @@ typeFuzzer =
 
 columnConstraintFuzzer : Fuzzer CreateTable.ColumnConstraint
 columnConstraintFuzzer =
-    Fuzz.map2 CreateTable.ColumnConstraint (Fuzz.maybe string) innerColumnConstraintFuzzer
+    Fuzz.map2 CreateTable.ColumnConstraint
+        (Fuzz.maybe idFuzzer)
+        innerColumnConstraintFuzzer
 
 
 innerColumnConstraintFuzzer : Fuzzer CreateTable.InnerColumnConstraint
@@ -131,7 +136,7 @@ innerColumnConstraintFuzzer =
         , Fuzz.map CreateTable.ColumnUnique (Fuzz.maybe conflictClauseFuzzer)
         , Fuzz.map CreateTable.ColumnCheck exprFuzzer
         , Fuzz.map CreateTable.ColumnDefault exprFuzzer
-        , Fuzz.map CreateTable.ColumnCollate string
+        , Fuzz.map CreateTable.ColumnCollate idFuzzer
         , Fuzz.map CreateTable.ColumnForeignKey foreignKeyClauseFuzzer
         , Fuzz.map3
             CreateTable.GeneratedAs
@@ -172,8 +177,8 @@ exprFuzzer =
 literalValueFuzzer : Fuzzer SQLite.Expr.LiteralValue
 literalValueFuzzer =
     Fuzz.oneOf
-        [ Fuzz.map SQLite.Expr.NumericLiteral Fuzz.niceFloat
-        , Fuzz.map SQLite.Expr.StringLiteral string
+        [ Fuzz.map SQLite.Expr.NumericLiteral Fuzz.float
+        , Fuzz.map SQLite.Expr.StringLiteral Fuzz.string
 
         -- , Fuzz.map SQLite.Expr.BlobLiteral bytesFuzzer
         , Fuzz.constant SQLite.Expr.Null
@@ -189,11 +194,11 @@ foreignKeyClauseFuzzer : Fuzzer CreateTable.ForeignKeyClause
 foreignKeyClauseFuzzer =
     Fuzz.map6
         CreateTable.ForeignKeyClause
-        string
-        (list string)
+        idFuzzer
+        (Fuzz.list idFuzzer)
         (Fuzz.maybe onDeleteUpdateFuzzer)
         (Fuzz.maybe onDeleteUpdateFuzzer)
-        (Fuzz.maybe string)
+        (Fuzz.maybe idFuzzer)
         (Fuzz.oneOf
             [ Fuzz.constant Nothing
 
@@ -223,35 +228,53 @@ generatedColumnStorageFuzzer =
 
 tableConstraintFuzzer : Fuzzer CreateTable.TableConstraint
 tableConstraintFuzzer =
-    Fuzz.map2 CreateTable.TableConstraint (Fuzz.maybe string) innerTableConstraintFuzzer
+    Fuzz.map2 CreateTable.TableConstraint
+        (Fuzz.maybe idFuzzer)
+        innerTableConstraintFuzzer
 
 
 innerTableConstraintFuzzer : Fuzzer CreateTable.InnerTableConstraint
 innerTableConstraintFuzzer =
     Fuzz.oneOf
-        [ Fuzz.map2 CreateTable.TablePrimaryKey (list indexedColumnFuzzer) (Fuzz.maybe conflictClauseFuzzer)
-        , Fuzz.map2 CreateTable.TableUnique (list indexedColumnFuzzer) (Fuzz.maybe conflictClauseFuzzer)
+        [ Fuzz.map2 CreateTable.TablePrimaryKey
+            (Fuzz.list indexedColumnFuzzer)
+            (Fuzz.maybe conflictClauseFuzzer)
+        , Fuzz.map2 CreateTable.TableUnique
+            (Fuzz.list indexedColumnFuzzer)
+            (Fuzz.maybe conflictClauseFuzzer)
         , Fuzz.map CreateTable.TableCheck exprFuzzer
-        , Fuzz.map2 CreateTable.TableForeignKey (list string) foreignKeyClauseFuzzer
+        , Fuzz.map2 CreateTable.TableForeignKey
+            (Fuzz.list idFuzzer)
+            foreignKeyClauseFuzzer
         ]
 
 
 indexedColumnFuzzer : Fuzzer CreateTable.IndexedColumn
 indexedColumnFuzzer =
-    Fuzz.map3 CreateTable.IndexedColumn nameOrExprFuzzer (Fuzz.maybe string) (Fuzz.maybe ascDescFuzzer)
+    Fuzz.map3 CreateTable.IndexedColumn
+        nameOrExprFuzzer
+        (Fuzz.maybe idFuzzer)
+        (Fuzz.maybe ascDescFuzzer)
 
 
 nameOrExprFuzzer : Fuzzer CreateTable.NameOrExpr
 nameOrExprFuzzer =
     Fuzz.oneOf
-        [ Fuzz.map CreateTable.IsName string
+        [ Fuzz.map CreateTable.IsName idFuzzer
         , Fuzz.map CreateTable.IsExpr exprFuzzer
         ]
 
 
 tableOptionsFuzzer : Fuzzer CreateTable.TableOptions
 tableOptionsFuzzer =
-    Fuzz.map2 CreateTable.TableOptions Fuzz.bool Fuzz.bool
+    Fuzz.map2 CreateTable.TableOptions
+        Fuzz.bool
+        Fuzz.bool
+
+
+idFuzzer : Fuzzer String
+idFuzzer =
+    Fuzz.stringOfLengthBetween 1 10
 
 
 
