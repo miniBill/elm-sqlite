@@ -17,40 +17,38 @@ suite : Test
 suite =
     fuzz statementFuzzer "toString >> parse === Ok" <|
         \statement ->
-            let
-                tokenized : Result String (List (Node Token))
-                tokenized =
-                    statement
-                        |> Statement.toString
-                        |> Parser.Tokenizer.tokenizer
+            case
+                statement
+                    |> Statement.toString
+                    |> Parser.Tokenizer.tokenizer
+            of
+                Ok tokenized ->
+                    let
+                        parsed : Result (List (Parser.DeadEnd Token)) Statement.Statement
+                        parsed =
+                            tokenized
+                                |> Parser.run (Statement.parser |> Parser.skip Parser.end)
+                    in
+                    if parsed == Ok statement then
+                        Expect.pass
 
-                actual : Result String (Result (List (Parser.DeadEnd Token)) Statement.Statement)
-                actual =
-                    tokenized
-                        |> Result.map (Parser.run (Statement.parser |> Parser.skip Parser.end))
-            in
-            if actual == Ok (Ok statement) then
-                Expect.pass
+                    else
+                        [ view "Statement" Statement.toString statement
+                        , view "Tokenized" tokenizedToString tokenized
+                        , view "Parsed" (Result.map Statement.toString >> Debug.toString) parsed
+                        ]
+                            |> String.join "\n"
+                            |> Expect.fail
 
-            else
-                [ view "Statement" Statement.toString statement
-                , view "Tokenized" tokenizedToString tokenized
-                , view "Parsed" (Result.map (Result.map Statement.toString) >> Debug.toString) actual
-                ]
-                    |> String.join "\n"
-                    |> Expect.fail
+                Err e ->
+                    Expect.fail ("Failed to tokenize: " ++ e)
 
 
-tokenizedToString : Result String (List (Node Token)) -> String
-tokenizedToString tokenized =
-    case tokenized of
-        Err e ->
-            "Err: " ++ e
-
-        Ok tokens ->
-            tokens
-                |> List.map (\(Node _ t) -> Token.toString t)
-                |> String.join " "
+tokenizedToString : List (Node Token) -> String
+tokenizedToString tokens =
+    tokens
+        |> List.map (\(Node _ t) -> Token.toString t)
+        |> String.join " "
 
 
 view : String -> (a -> String) -> a -> String
