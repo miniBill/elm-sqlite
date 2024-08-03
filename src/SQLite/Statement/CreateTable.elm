@@ -1,7 +1,13 @@
 module SQLite.Statement.CreateTable exposing (ColumnConstraint, ColumnDefinition, ForeignKeyClause, GeneratedColumnStorage(..), IndexedColumn, InnerColumnConstraint(..), InnerTableConstraint(..), NameOrExpr(..), OnDeleteUpdate(..), Statement, TableConstraint, TableDefinition(..), TableOptions, parser, toRope)
 
-import Parser exposing ((|.), (|=), Parser)
-import Parser.Extra as Parser
+{-|
+
+@docs ColumnConstraint, ColumnDefinition, ForeignKeyClause, GeneratedColumnStorage, IndexedColumn, InnerColumnConstraint, InnerTableConstraint, NameOrExpr, OnDeleteUpdate, Statement, TableConstraint, TableDefinition, TableOptions, parser, toRope
+
+-}
+
+import Parser.OfTokens as Parser exposing (Parser)
+import Parser.Token as Token exposing (Token)
 import Rope exposing (Rope)
 import Rope.Extra
 import SQLite.Expr as Expr exposing (Expr)
@@ -451,7 +457,7 @@ type alias TableOptions =
     }
 
 
-parser : Parser Statement
+parser : Parser Token Statement
 parser =
     Parser.succeed
         (\temporary ifNotExists ( schemaName, name ) definition ->
@@ -462,41 +468,46 @@ parser =
             , definition = definition
             }
         )
-        |. Parser.symbol_ "CREATE"
-        |= Parser.oneOf
+        |> Parser.token_ Token.Create
+        |> Parser.oneOf_
             [ Parser.succeed True
-                |. Parser.symbol_ "TEMP"
-                |. Parser.oneOf
-                    [ Parser.symbol_ "ORARY"
-                    , Parser.succeed ()
-                    ]
+                |> Parser.skip
+                    (Parser.oneOf
+                        [ Parser.token Token.Temporary
+                        , Parser.token Token.Temp
+                        ]
+                    )
             , Parser.succeed False
             ]
-        |. Parser.symbol_ "TABLE"
-        |= Parser.oneOf
+        |> Parser.token_ Token.Table
+        |> Parser.oneOf_
             [ Parser.succeed True
-                |. Parser.symbol_ "IF"
-                |. Parser.symbol_ "NOT"
-                |. Parser.symbol_ "EXISTS"
+                |> Parser.token_ Token.If
+                |> Parser.token_ Token.Not
+                |> Parser.token_ Token.Exists
+            , Parser.succeed False
             ]
-        |= (Parser.succeed (\a f -> f a)
-                |= Parser.id
-                |= Parser.oneOf
-                    [ Parser.succeed (\t s -> ( Just s, t ))
-                        |. Parser.symbol "."
-                        |= Parser.id
-                    , Parser.succeed (\t -> ( Nothing, t ))
-                    ]
-           )
-        |= definitionParser
+        |> Parser.custom_
+            (\stream ->
+                case stream of
+                    (Token.Ident schema) :: Token.Dot :: (Token.Ident table) :: tail ->
+                        Parser.Good True ( Just schema, table ) tail
+
+                    (Token.Ident table) :: tail ->
+                        Parser.Good True ( Nothing, table ) tail
+
+                    _ ->
+                        Parser.Bad False (Rope.singleton (Parser.Problem "Expecting table name"))
+            )
+        |> Parser.keep definitionParser
 
 
-definitionParser : Parser TableDefinition
+definitionParser : Parser Token TableDefinition
 definitionParser =
     Parser.oneOf
         [ Parser.succeed TableDefinitionSelect
-            |. Parser.symbol_ "AS"
-            |= Select.parser
+            |> Parser.token_ Token.As
+            |> Parser.keep Select.parser
         , Parser.succeed
             (\columnsAndConstraints options ->
                 TableDefinitionColumns
@@ -525,32 +536,31 @@ definitionParser =
                     , options = options
                     }
             )
-            |= Parser.sequence
-                { start = "("
-                , end = ")"
-                , separator = ","
+            |> Parser.sequence_
+                { start = Token.ParensOpen
+                , end = Token.ParensClose
+                , separator = Token.Comma
                 , item =
                     Parser.oneOf
                         [ Parser.map Ok columnDefinitionParser
                         , Parser.map Err tableConstraintParser
                         ]
                 , trailing = Parser.Forbidden
-                , spaces = Parser.spaces_
                 }
-            |= tableOptionsParser
+            |> Parser.keep tableOptionsParser
         ]
 
 
-columnDefinitionParser : Parser ColumnDefinition
+columnDefinitionParser : Parser Token ColumnDefinition
 columnDefinitionParser =
     Parser.problem "CreateTable.columnDefinitionParser"
 
 
-tableConstraintParser : Parser TableConstraint
+tableConstraintParser : Parser Token TableConstraint
 tableConstraintParser =
     Parser.problem "CreateTable.tableConstraintParser"
 
 
-tableOptionsParser : Parser TableOptions
+tableOptionsParser : Parser Token TableOptions
 tableOptionsParser =
     Parser.problem "CreateTable.tableOptionsParser"

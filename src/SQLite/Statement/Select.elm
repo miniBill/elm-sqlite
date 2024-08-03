@@ -1,6 +1,6 @@
 module SQLite.Statement.Select exposing (Statement(..), parser, toRope)
 
-import Parser exposing (Parser)
+import Parser.OfTokens as Parser exposing (Parser)
 import Rope exposing (Rope)
 
 
@@ -13,6 +13,6 @@ toRope (Statement ever) =
     never ever
 
 
-parser : Parser Statement
+parser : Parser token Statement
 parser =
     Parser.problem "Statement.Select.parser"

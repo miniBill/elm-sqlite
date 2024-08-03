@@ -1,7 +1,13 @@
 module SQLite.Statement exposing (Explain(..), InnerStatement(..), Statement, parser, toString)
 
-import Parser exposing ((|.), (|=), Parser)
-import Parser.Extra as Parser
+{-|
+
+@docs Explain, InnerStatement, Statement, parser, toString
+
+-}
+
+import Parser.OfTokens as Parser exposing (Parser)
+import Parser.Token as Token exposing (Token)
 import Rope exposing (Rope)
 import SQLite.Statement.CreateTable as CreateTable
 import SQLite.Statement.Select as Select
@@ -49,23 +55,28 @@ type InnerStatement
     | Vacuum Never
 
 
-parser : Parser Statement
+parser : Parser Token Statement
 parser =
     Parser.succeed Statement
-        |= Parser.oneOf
+        |> Parser.oneOf_
             [ Parser.succeed Just
-                |. Parser.symbol_ "EXPLAIN"
-                |= Parser.oneOf
+                |> Parser.token_ Token.Explain
+                |> Parser.oneOf_
                     [ Parser.succeed ExplainQueryPlan
-                        |. Parser.symbol_ "QUERY"
-                        |. Parser.symbol_ "PLAN"
+                        |> Parser.token_ Token.Query
+                        |> Parser.token_ Token.Plan
                     , Parser.succeed Explain
                     ]
             , Parser.succeed Nothing
             ]
-        |= Parser.oneOf
-            [ Parser.map CreateTable CreateTable.parser
-            ]
+        |> Parser.oneOf_
+            (let
+                _ =
+                    Debug.todo
+             in
+             [ Parser.map CreateTable CreateTable.parser
+             ]
+            )
 
 
 toString : Statement -> String
@@ -76,6 +87,7 @@ toString statement =
 toRope : Statement -> Rope String
 toRope statement =
     let
+        prefix : Rope String
         prefix =
             case statement.explain of
                 Nothing ->

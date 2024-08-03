@@ -2,7 +2,8 @@ module ParserTest exposing (suite)
 
 import Expect
 import Fuzz exposing (Fuzzer)
-import Parser exposing ((|.))
+import Parser.OfTokens as Parser
+import Parser.Tokenizer
 import SQLite.Expr
 import SQLite.Statement as Statement
 import SQLite.Statement.CreateTable as CreateTable
@@ -16,8 +17,9 @@ suite =
         \statement ->
             statement
                 |> Statement.toString
-                |> Parser.run (Statement.parser |. Parser.end)
-                |> Expect.equal (Ok statement)
+                |> Parser.Tokenizer.tokenizer
+                |> Result.map (Parser.run (Statement.parser |> Parser.skip Parser.end))
+                |> Expect.equal (Ok (Ok statement))
 
 
 statementFuzzer : Fuzzer Statement.Statement
@@ -88,8 +90,8 @@ createTableDefinitionFuzzer =
             CreateTable.TableDefinitionColumns
             (Fuzz.map3
                 (\columns constraints options -> { columns = columns, constraints = constraints, options = options })
-                (Fuzz.list columnDefinitionFuzzer)
-                (Fuzz.list tableConstraintFuzzer)
+                (Fuzz.listOfLengthBetween 0 4 columnDefinitionFuzzer)
+                (Fuzz.listOfLengthBetween 0 4 tableConstraintFuzzer)
                 tableOptionsFuzzer
             )
 
@@ -102,7 +104,7 @@ columnDefinitionFuzzer =
     Fuzz.map3 CreateTable.ColumnDefinition
         idFuzzer
         (Fuzz.maybe typeFuzzer)
-        (Fuzz.list columnConstraintFuzzer)
+        (Fuzz.listOfLengthBetween 0 4 columnConstraintFuzzer)
 
 
 typeFuzzer : Fuzzer SQLite.Types.Type
@@ -195,7 +197,7 @@ foreignKeyClauseFuzzer =
     Fuzz.map6
         CreateTable.ForeignKeyClause
         idFuzzer
-        (Fuzz.list idFuzzer)
+        (Fuzz.listOfLengthBetween 0 4 idFuzzer)
         (Fuzz.maybe onDeleteUpdateFuzzer)
         (Fuzz.maybe onDeleteUpdateFuzzer)
         (Fuzz.maybe idFuzzer)
@@ -237,14 +239,14 @@ innerTableConstraintFuzzer : Fuzzer CreateTable.InnerTableConstraint
 innerTableConstraintFuzzer =
     Fuzz.oneOf
         [ Fuzz.map2 CreateTable.TablePrimaryKey
-            (Fuzz.list indexedColumnFuzzer)
+            (Fuzz.listOfLengthBetween 0 4 indexedColumnFuzzer)
             (Fuzz.maybe conflictClauseFuzzer)
         , Fuzz.map2 CreateTable.TableUnique
-            (Fuzz.list indexedColumnFuzzer)
+            (Fuzz.listOfLengthBetween 0 4 indexedColumnFuzzer)
             (Fuzz.maybe conflictClauseFuzzer)
         , Fuzz.map CreateTable.TableCheck exprFuzzer
         , Fuzz.map2 CreateTable.TableForeignKey
-            (Fuzz.list idFuzzer)
+            (Fuzz.listOfLengthBetween 0 4 idFuzzer)
             foreignKeyClauseFuzzer
         ]
 
