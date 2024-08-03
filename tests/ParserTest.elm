@@ -2,7 +2,9 @@ module ParserTest exposing (suite)
 
 import Expect
 import Fuzz exposing (Fuzzer)
+import List.Extra
 import Parser.OfTokens as Parser
+import Parser.Token exposing (Token)
 import Parser.Tokenizer
 import SQLite.Expr
 import SQLite.Statement as Statement
@@ -15,11 +17,47 @@ suite : Test
 suite =
     fuzz statementFuzzer "toString >> parse === Ok" <|
         \statement ->
-            statement
-                |> Statement.toString
-                |> Parser.Tokenizer.tokenizer
-                |> Result.map (Parser.run (Statement.parser |> Parser.skip Parser.end))
-                |> Expect.equal (Ok (Ok statement))
+            let
+                tokenized : Result String (List Token)
+                tokenized =
+                    statement
+                        |> Statement.toString
+                        |> Parser.Tokenizer.tokenizer
+
+                actual : Result String (Result (List (Parser.Error Token)) Statement.Statement)
+                actual =
+                    tokenized
+                        |> Result.map (Parser.run (Statement.parser |> Parser.skip Parser.end))
+            in
+            if actual == Ok (Ok statement) then
+                Expect.pass
+
+            else
+                [ view "Statement" Statement.toString statement
+                , view "Tokenized" Debug.toString tokenized
+                , view "Parsed" (Result.map (Result.map Statement.toString) >> Debug.toString) actual
+                ]
+                    |> String.join "\n"
+                    |> Expect.fail
+
+
+view : String -> (a -> String) -> a -> String
+view label toString value =
+    label ++ ":\n" ++ indent 4 (toString value)
+
+
+indent : Int -> String -> String
+indent count input =
+    let
+        i : String
+        i =
+            String.repeat count " "
+    in
+    input
+        |> String.split "\n"
+        |> List.Extra.removeWhen (\line -> String.isEmpty (String.trim line))
+        |> List.map (\line -> i ++ line)
+        |> String.join "\n"
 
 
 statementFuzzer : Fuzzer Statement.Statement
