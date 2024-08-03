@@ -276,7 +276,11 @@ tableOptionsFuzzer =
 
 idFuzzer : Fuzzer String
 idFuzzer =
-    Fuzz.stringOfLengthBetween 1 10
+    List.range (Char.toCode 'a') (Char.toCode 'z')
+        |> List.map Char.fromCode
+        |> Fuzz.oneOfValues
+        |> Fuzz.listOfLengthBetween 1 10
+        |> Fuzz.map String.fromList
 
 
 
