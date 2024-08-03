@@ -542,8 +542,8 @@ definitionParser =
                 , separator = Token.Comma
                 , item =
                     Parser.oneOf
-                        [ Parser.map Ok columnDefinitionParser
-                        , Parser.map Err tableConstraintParser
+                        [ Parser.map Err tableConstraintParser
+                        , Parser.map Ok columnDefinitionParser
                         ]
                 , trailing = Parser.Forbidden
                 }
