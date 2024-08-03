@@ -17,11 +17,16 @@ suite : Test
 suite =
     fuzz statementFuzzer "toString >> parse === Ok" <|
         \statement ->
-            case
-                statement
-                    |> Statement.toString
-                    |> Parser.Tokenizer.tokenizer
-            of
+            let
+                statementString : String
+                statementString =
+                    statement
+                        |> Statement.toString
+                        |> String.split "\n"
+                        |> List.Extra.removeWhen (\line -> line |> String.trim |> String.isEmpty)
+                        |> String.join "\n"
+            in
+            case Parser.Tokenizer.tokenizer statementString of
                 Ok tokenized ->
                     let
                         parsed : Result (List (Parser.DeadEnd Token)) Statement.Statement
@@ -33,15 +38,65 @@ suite =
                         Expect.pass
 
                     else
-                        [ view "Statement" Statement.toString statement
+                        [ view "Statement" identity statementString
                         , view "Tokenized" tokenizedToString tokenized
-                        , view "Parsed" (Result.map Statement.toString >> Debug.toString) parsed
+                        , view "Parsed" (parseResultToString statementString) parsed
                         ]
                             |> String.join "\n"
                             |> Expect.fail
 
                 Err e ->
                     Expect.fail ("Failed to tokenize: " ++ e)
+
+
+parseResultToString : String -> Result (List (Parser.DeadEnd Token)) Statement.Statement -> String
+parseResultToString input result =
+    case result of
+        Err e ->
+            let
+                lines : List String
+                lines =
+                    String.split "\n" input
+            in
+            e
+                |> List.map
+                    (\{ row, column, problem } ->
+                        let
+                            pre : String
+                            pre =
+                                lines
+                                    |> List.drop (row - 3)
+                                    |> List.take (min 2 (row - 1))
+                                    |> List.map (\line -> line ++ "\n")
+                                    |> String.concat
+
+                            current : String
+                            current =
+                                lines
+                                    |> List.drop (row - 1)
+                                    |> List.take 1
+                                    |> String.join "\n"
+
+                            post : String
+                            post =
+                                lines
+                                    |> List.drop row
+                                    |> List.take 2
+                                    |> String.join "\n"
+                        in
+                        pre
+                            ++ current
+                            ++ "\n"
+                            ++ String.repeat (column - 1) " "
+                            ++ "^-- "
+                            ++ Debug.toString problem
+                            ++ "\n"
+                            ++ post
+                    )
+                |> String.join "\n\n--- OR ---\n\n"
+
+        Ok s ->
+            Statement.toString s
 
 
 tokenizedToString : List (Node Token) -> String
@@ -65,7 +120,6 @@ indent count input =
     in
     input
         |> String.split "\n"
-        |> List.Extra.removeWhen (\line -> String.isEmpty (String.trim line))
         |> List.map (\line -> i ++ line)
         |> String.join "\n"
 

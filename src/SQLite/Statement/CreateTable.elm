@@ -553,14 +553,14 @@ definitionParser =
 
 columnDefinitionParser : Parser Token ColumnDefinition
 columnDefinitionParser =
-    Parser.problem "CreateTable.columnDefinitionParser"
+    Parser.problem "TODO: CreateTable.columnDefinitionParser"
 
 
 tableConstraintParser : Parser Token TableConstraint
 tableConstraintParser =
-    Parser.problem "CreateTable.tableConstraintParser"
+    Parser.problem "TODO: CreateTable.tableConstraintParser"
 
 
 tableOptionsParser : Parser Token TableOptions
 tableOptionsParser =
-    Parser.problem "CreateTable.tableOptionsParser"
+    Parser.problem "TODO: CreateTable.tableOptionsParser"
