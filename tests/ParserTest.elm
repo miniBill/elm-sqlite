@@ -3,7 +3,7 @@ module ParserTest exposing (suite)
 import Expect
 import Fuzz exposing (Fuzzer)
 import List.Extra
-import Parser.OfTokens as Parser
+import Parser.OfTokens as Parser exposing (Node)
 import Parser.Token exposing (Token)
 import Parser.Tokenizer
 import SQLite.Expr
@@ -18,13 +18,13 @@ suite =
     fuzz statementFuzzer "toString >> parse === Ok" <|
         \statement ->
             let
-                tokenized : Result String (List Token)
+                tokenized : Result String (List (Node Token))
                 tokenized =
                     statement
                         |> Statement.toString
                         |> Parser.Tokenizer.tokenizer
 
-                actual : Result String (Result (List (Parser.Error Token)) Statement.Statement)
+                actual : Result String (Result (List (Parser.DeadEnd Token)) Statement.Statement)
                 actual =
                     tokenized
                         |> Result.map (Parser.run (Statement.parser |> Parser.skip Parser.end))

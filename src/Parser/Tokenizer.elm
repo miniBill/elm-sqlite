@@ -1,53 +1,89 @@
 module Parser.Tokenizer exposing (tokenizer)
 
 import List.Extra
+import Parser.OfTokens exposing (Location, Node(..))
 import Parser.Token as Token exposing (Token)
 
 
-tokenizer : String -> Result String (List Token)
+tokenizer : String -> Result String (List (Node Token))
 tokenizer input =
     tokenizerHelper
+        { row = 1, column = 1 }
         (String.toList input)
         (String.toList (String.toUpper input))
         []
 
 
-tokenizerHelper : List Char -> List Char -> List Token -> Result String (List Token)
-tokenizerHelper input inputUppercase acc =
+tokenizerHelper : Location -> List Char -> List Char -> List (Node Token) -> Result String (List (Node Token))
+tokenizerHelper position input inputUppercase acc =
+    let
+        build : Token -> ( Location, Node Token )
+        build t =
+            let
+                next : Location
+                next =
+                    { position | column = position.column + 1 }
+            in
+            ( next, Node { start = position, end = next } t )
+    in
     case inputUppercase of
         [] ->
             Ok (List.reverse acc)
 
         '(' :: tail ->
-            tokenizerHelper (List.drop 1 input) tail (Token.ParensOpen :: acc)
+            let
+                ( next, token ) =
+                    build Token.ParensOpen
+            in
+            tokenizerHelper next (List.drop 1 input) tail (token :: acc)
 
         ')' :: tail ->
-            tokenizerHelper (List.drop 1 input) tail (Token.ParensClose :: acc)
+            let
+                ( next, token ) =
+                    build Token.ParensClose
+            in
+            tokenizerHelper next (List.drop 1 input) tail (token :: acc)
 
         ',' :: tail ->
-            tokenizerHelper (List.drop 1 input) tail (Token.Comma :: acc)
+            let
+                ( next, token ) =
+                    build Token.Comma
+            in
+            tokenizerHelper next (List.drop 1 input) tail (token :: acc)
 
         '.' :: tail ->
-            tokenizerHelper (List.drop 1 input) tail (Token.Dot :: acc)
+            let
+                ( next, token ) =
+                    build Token.Dot
+            in
+            tokenizerHelper next (List.drop 1 input) tail (token :: acc)
 
         ' ' :: tail ->
-            tokenizerHelper (List.drop 1 input) tail acc
+            tokenizerHelper { position | column = position.column + 1 } (List.drop 1 input) tail acc
 
         '\n' :: tail ->
-            tokenizerHelper (List.drop 1 input) tail acc
+            tokenizerHelper { column = 1, row = position.row + 1 } (List.drop 1 input) tail acc
 
         head :: _ ->
             if Char.isAlpha head then
                 let
-                    ( ( token, newInput ), ( tokenUppercase, newInputUppercase ) ) =
+                    ( ( tokenContent, newInput ), ( tokenUppercaseContent, newInputUppercase ) ) =
                         id input inputUppercase
-                in
-                case Token.fromString tokenUppercase of
-                    Nothing ->
-                        tokenizerHelper newInput newInputUppercase (Token.Ident token :: acc)
 
-                    Just t ->
-                        tokenizerHelper newInput newInputUppercase (t :: acc)
+                    next : Location
+                    next =
+                        { position | column = position.column + String.length tokenContent }
+
+                    node : a -> Node a
+                    node t =
+                        Node { start = position, end = next } t
+
+                    token : Token
+                    token =
+                        Token.fromString tokenUppercaseContent
+                            |> Maybe.withDefault (Token.Ident tokenContent)
+                in
+                tokenizerHelper next newInput newInputUppercase (node token :: acc)
 
             else
                 Err ("Unexpected char: " ++ String.fromChar head)

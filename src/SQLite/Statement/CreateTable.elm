@@ -6,7 +6,7 @@ module SQLite.Statement.CreateTable exposing (ColumnConstraint, ColumnDefinition
 
 -}
 
-import Parser.OfTokens as Parser exposing (Parser)
+import Parser.OfTokens as Parser exposing (Node(..), Parser)
 import Parser.Token as Token exposing (Token)
 import Rope exposing (Rope)
 import Rope.Extra
@@ -488,16 +488,16 @@ parser =
             , Parser.succeed False
             ]
         |> Parser.custom_
-            (\stream ->
+            (\position stream ->
                 case stream of
-                    (Token.Ident schema) :: Token.Dot :: (Token.Ident table) :: tail ->
-                        Parser.Good True ( Just schema, table ) tail
+                    (Node _ (Token.Ident schema)) :: (Node _ Token.Dot) :: (Node tableRange (Token.Ident table)) :: tail ->
+                        Parser.Good True ( Just schema, table ) tableRange.end tail
 
-                    (Token.Ident table) :: tail ->
-                        Parser.Good True ( Nothing, table ) tail
+                    (Node tableRange (Token.Ident table)) :: tail ->
+                        Parser.Good True ( Nothing, table ) tableRange.end tail
 
                     _ ->
-                        Parser.Bad False (Rope.singleton (Parser.Problem "Expecting table name"))
+                        Parser.errorAt False position (Parser.Problem "Expecting table name")
             )
         |> Parser.keep definitionParser
 

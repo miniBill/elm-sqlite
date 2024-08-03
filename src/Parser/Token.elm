@@ -1,11 +1,11 @@
 module Parser.Token exposing
-    ( Token(..)
-    , fromString
+    ( Token(..), fromString
+    , toString
     )
 
 {-|
 
-@docs Token
+@docs Token, fromString
 
 -}
 
@@ -394,6 +394,9 @@ fromString input =
         "INTERSECT" ->
             Just Intersect
 
+        "INTEGER" ->
+            Just Integer
+
         "INTO" ->
             Just Into
 
@@ -612,3 +615,466 @@ fromString input =
 
         _ ->
             Maybe.Nothing
+
+
+toString : Token -> String
+toString input =
+    case input of
+        Abort ->
+            "ABORT"
+
+        Action ->
+            "ACTION"
+
+        Add ->
+            "ADD"
+
+        After ->
+            "AFTER"
+
+        All ->
+            "ALL"
+
+        Alter ->
+            "ALTER"
+
+        Always ->
+            "ALWAYS"
+
+        Analyze ->
+            "ANALYZE"
+
+        And ->
+            "AND"
+
+        As ->
+            "AS"
+
+        Asc ->
+            "ASC"
+
+        Attach ->
+            "ATTACH"
+
+        AutoIncrement ->
+            "AUTOINCREMENT"
+
+        Before ->
+            "BEFORE"
+
+        Begin ->
+            "BEGIN"
+
+        Between ->
+            "BETWEEN"
+
+        By ->
+            "BY"
+
+        Cascade ->
+            "CASCADE"
+
+        Case ->
+            "CASE"
+
+        Cast ->
+            "CAST"
+
+        Check ->
+            "CHECK"
+
+        Collate ->
+            "COLLATE"
+
+        Column ->
+            "COLUMN"
+
+        Commit ->
+            "COMMIT"
+
+        Conflict ->
+            "CONFLICT"
+
+        Constraint ->
+            "CONSTRAINT"
+
+        Create ->
+            "CREATE"
+
+        Cross ->
+            "CROSS"
+
+        Current ->
+            "CURRENT"
+
+        Current_Date ->
+            "CURRENT_DATE"
+
+        Current_Time ->
+            "CURRENT_TIME"
+
+        Current_Timestamp ->
+            "CURRENT_TIMESTAMP"
+
+        Database ->
+            "DATABASE"
+
+        Default ->
+            "DEFAULT"
+
+        Deferrable ->
+            "DEFERRABLE"
+
+        Deferred ->
+            "DEFERRED"
+
+        Delete ->
+            "DELETE"
+
+        Desc ->
+            "DESC"
+
+        Detach ->
+            "DETACH"
+
+        Distinct ->
+            "DISTINCT"
+
+        Do ->
+            "DO"
+
+        Drop ->
+            "DROP"
+
+        Each ->
+            "EACH"
+
+        Else ->
+            "ELSE"
+
+        End ->
+            "END"
+
+        Escape ->
+            "ESCAPE"
+
+        Except ->
+            "EXCEPT"
+
+        Exclude ->
+            "EXCLUDE"
+
+        Exclusive ->
+            "EXCLUSIVE"
+
+        Exists ->
+            "EXISTS"
+
+        Explain ->
+            "EXPLAIN"
+
+        Fail ->
+            "FAIL"
+
+        Filter ->
+            "FILTER"
+
+        First ->
+            "FIRST"
+
+        Following ->
+            "FOLLOWING"
+
+        For ->
+            "FOR"
+
+        Foreign ->
+            "FOREIGN"
+
+        From ->
+            "FROM"
+
+        Full ->
+            "FULL"
+
+        Generated ->
+            "GENERATED"
+
+        Glob ->
+            "GLOB"
+
+        Group ->
+            "GROUP"
+
+        Groups ->
+            "GROUPS"
+
+        Having ->
+            "HAVING"
+
+        If ->
+            "IF"
+
+        Ignore ->
+            "IGNORE"
+
+        Immediate ->
+            "IMMEDIATE"
+
+        In ->
+            "IN"
+
+        Index ->
+            "INDEX"
+
+        Indexed ->
+            "INDEXED"
+
+        Initially ->
+            "INITIALLY"
+
+        Inner ->
+            "INNER"
+
+        Insert ->
+            "INSERT"
+
+        Instead ->
+            "INSTEAD"
+
+        Integer ->
+            "INTEGER"
+
+        Intersect ->
+            "INTERSECT"
+
+        Into ->
+            "INTO"
+
+        Is ->
+            "IS"
+
+        IsNull ->
+            "ISNULL"
+
+        Join ->
+            "JOIN"
+
+        Key ->
+            "KEY"
+
+        Last ->
+            "LAST"
+
+        Left ->
+            "LEFT"
+
+        Like ->
+            "LIKE"
+
+        Limit ->
+            "LIMIT"
+
+        Match ->
+            "MATCH"
+
+        Materialized ->
+            "MATERIALIZED"
+
+        Natural ->
+            "NATURAL"
+
+        No ->
+            "NO"
+
+        Not ->
+            "NOT"
+
+        Nothing ->
+            "NOTHING"
+
+        NotNull ->
+            "NOTNULL"
+
+        Null ->
+            "NULL"
+
+        Nulls ->
+            "NULLS"
+
+        Of ->
+            "OF"
+
+        Offset ->
+            "OFFSET"
+
+        On ->
+            "ON"
+
+        Or ->
+            "OR"
+
+        Order ->
+            "ORDER"
+
+        Others ->
+            "OTHERS"
+
+        Outer ->
+            "OUTER"
+
+        Over ->
+            "OVER"
+
+        Partition ->
+            "PARTITION"
+
+        Plan ->
+            "PLAN"
+
+        Pragma ->
+            "PRAGMA"
+
+        Preceding ->
+            "PRECEDING"
+
+        Primary ->
+            "PRIMARY"
+
+        Query ->
+            "QUERY"
+
+        Raise ->
+            "RAISE"
+
+        Range ->
+            "RANGE"
+
+        Recursive ->
+            "RECURSIVE"
+
+        References ->
+            "REFERENCES"
+
+        Regexp ->
+            "REGEXP"
+
+        Reindex ->
+            "REINDEX"
+
+        Release ->
+            "RELEASE"
+
+        Rename ->
+            "RENAME"
+
+        Replace ->
+            "REPLACE"
+
+        Restrict ->
+            "RESTRICT"
+
+        Returning ->
+            "RETURNING"
+
+        Right ->
+            "RIGHT"
+
+        Rollback ->
+            "ROLLBACK"
+
+        Row ->
+            "ROW"
+
+        Rows ->
+            "ROWS"
+
+        Savepoint ->
+            "SAVEPOINT"
+
+        Select ->
+            "SELECT"
+
+        Set ->
+            "SET"
+
+        Table ->
+            "TABLE"
+
+        Temp ->
+            "TEMP"
+
+        Temporary ->
+            "TEMPORARY"
+
+        Then ->
+            "THEN"
+
+        Ties ->
+            "TIES"
+
+        To ->
+            "TO"
+
+        Transaction ->
+            "TRANSACTION"
+
+        Trigger ->
+            "TRIGGER"
+
+        Unbounded ->
+            "UNBOUNDED"
+
+        Union ->
+            "UNION"
+
+        Unique ->
+            "UNIQUE"
+
+        Update ->
+            "UPDATE"
+
+        Using ->
+            "USING"
+
+        Vacuum ->
+            "VACUUM"
+
+        Values ->
+            "VALUES"
+
+        View ->
+            "VIEW"
+
+        Virtual ->
+            "VIRTUAL"
+
+        When ->
+            "WHEN"
+
+        Where ->
+            "WHERE"
+
+        Window ->
+            "WINDOW"
+
+        With ->
+            "WITH"
+
+        Without ->
+            "WITHOUT"
+
+        ParensClose ->
+            ")"
+
+        ParensOpen ->
+            "("
+
+        Comma ->
+            ","
+
+        Dot ->
+            "."
+
+        Ident i ->
+            i

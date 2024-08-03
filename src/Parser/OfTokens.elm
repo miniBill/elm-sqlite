@@ -1,16 +1,39 @@
-module Parser.OfTokens exposing (Error(..), PStep(..), Parser, Trailing(..), custom_, end, keep, map, oneOf, oneOf_, problem, run, sequence_, skip, succeed, token, token_)
+module Parser.OfTokens exposing (DeadEnd, Error(..), Location, Node(..), PStep(..), Parser, Trailing(..), custom_, end, errorAt, keep, map, oneOf, oneOf_, problem, run, sequence_, skip, succeed, token, token_)
 
 {-|
 
-@docs Error, PStep, Parser, Trailing, custom_, end, keep, map, oneOf, oneOf_, problem, run, sequence_, skip, succeed, token, token_
+@docs DeadEnd, Error, Location, Node, PStep, Parser, Trailing, custom_, end, errorAt, keep, map, oneOf, oneOf_, problem, run, sequence_, skip, succeed, token, token_
 
 -}
 
 import Rope exposing (Rope)
 
 
+type Node a
+    = Node Range a
+
+
+type alias Range =
+    { start : Location
+    , end : Location
+    }
+
+
+type alias Location =
+    { row : Int
+    , column : Int
+    }
+
+
+type alias DeadEnd token =
+    { row : Int
+    , column : Int
+    , problem : Error token
+    }
+
+
 type Parser token a
-    = Parser (List token -> PStep token a)
+    = Parser (Location -> List (Node token) -> PStep token a)
 
 
 {-| What’s the deal with trailing commas? Are they `Forbidden`?
@@ -23,8 +46,8 @@ type Trailing
 
 
 type PStep token a
-    = Bad Bool (Rope (Error token))
-    | Good Bool a (List token)
+    = Bad Bool (Rope (DeadEnd token))
+    | Good Bool a Location (List (Node token))
 
 
 type Error token
@@ -34,13 +57,13 @@ type Error token
     | ExpectingTableNameOrSchemaNameAndTableName
 
 
-custom : (List token -> PStep token a) -> Parser token a
+custom : (Location -> List (Node token) -> PStep token a) -> Parser token a
 custom f =
     Parser f
 
 
 custom_ :
-    (List token -> PStep token a)
+    (Location -> List (Node token) -> PStep token a)
     -> Parser token (a -> b)
     -> Parser token b
 custom_ f main =
@@ -50,36 +73,36 @@ custom_ f main =
 keep : Parser token a -> Parser token (a -> b) -> Parser token b
 keep (Parser second) (Parser first) =
     Parser
-        (\stream ->
-            case first stream of
+        (\position stream ->
+            case first position stream of
                 Bad firstCommitted e ->
                     Bad firstCommitted e
 
-                Good firstCommitted f tail ->
-                    case second tail of
+                Good firstCommitted f newPosition tail ->
+                    case second newPosition tail of
                         Bad secondCommitted e ->
                             Bad secondCommitted e
 
-                        Good secondCommitted s next ->
-                            Good (firstCommitted || secondCommitted) (f s) next
+                        Good secondCommitted s lastPosition next ->
+                            Good (firstCommitted || secondCommitted) (f s) lastPosition next
         )
 
 
 skip : Parser token () -> Parser token a -> Parser token a
 skip (Parser second) (Parser first) =
     Parser
-        (\stream ->
-            case first stream of
+        (\position stream ->
+            case first position stream of
                 Bad firstCommitted e ->
                     Bad firstCommitted e
 
-                Good firstCommitted f tail ->
-                    case second tail of
+                Good firstCommitted f newPosition tail ->
+                    case second newPosition tail of
                         Bad secondCommitted e ->
                             Bad secondCommitted e
 
-                        Good secondCommitted () next ->
-                            Good (firstCommitted || secondCommitted) f next
+                        Good secondCommitted () lastPosition next ->
+                            Good (firstCommitted || secondCommitted) f lastPosition next
         )
 
 
@@ -91,27 +114,27 @@ oneOf_ alternatives other =
 oneOf : List (Parser token a) -> Parser token a
 oneOf list =
     Parser
-        (\stream ->
-            oneOfHelper Rope.empty list stream
+        (\position stream ->
+            oneOfHelper Rope.empty list position stream
         )
 
 
-oneOfHelper : Rope (Error token) -> List (Parser token a) -> List token -> PStep token a
-oneOfHelper errs list stream =
+oneOfHelper : Rope (DeadEnd token) -> List (Parser token a) -> Location -> List (Node token) -> PStep token a
+oneOfHelper errs list position stream =
     case list of
         [] ->
             Bad False errs
 
         (Parser head) :: tail ->
-            case head stream of
-                Good committed v rest ->
-                    Good committed v rest
+            case head position stream of
+                Good committed v newPosition rest ->
+                    Good committed v newPosition rest
 
                 Bad True e ->
                     Bad True e
 
                 Bad False e ->
-                    oneOfHelper (errs |> Rope.prependTo e) tail stream
+                    oneOfHelper (errs |> Rope.prependTo e) tail position stream
 
 
 token_ : a -> Parser a b -> Parser a b
@@ -122,18 +145,28 @@ token_ t main =
 token : token -> Parser token ()
 token t =
     Parser
-        (\stream ->
+        (\position stream ->
             case stream of
                 [] ->
-                    Bad False (Rope.singleton (ExpectingToken t))
+                    errorAt False position (ExpectingToken t)
 
-                head :: tail ->
+                (Node range head) :: tail ->
                     if head == t then
-                        Good True () tail
+                        Good True () range.end tail
 
                     else
-                        Bad False (Rope.singleton (ExpectingToken t))
+                        errorAt False position (ExpectingToken t)
         )
+
+
+errorAt : Bool -> Location -> Error token -> PStep token a
+errorAt commit location error =
+    Rope.singleton
+        { row = location.row
+        , column = location.column
+        , problem = error
+        }
+        |> Bad commit
 
 
 succeed : a -> Parser token a
@@ -144,10 +177,10 @@ succeed res =
 map : (a -> b) -> Parser token a -> Parser token b
 map f (Parser p) =
     Parser
-        (\stream ->
-            case p stream of
-                Good commit v rest ->
-                    Good commit (f v) rest
+        (\position stream ->
+            case p position stream of
+                Good commit v newPosition rest ->
+                    Good commit (f v) newPosition rest
 
                 Bad commit e ->
                     Bad commit e
@@ -177,89 +210,111 @@ sequence :
     -> Parser token (List item)
 sequence config =
     Parser
-        (\stream ->
+        (\initialPosition stream ->
             let
                 (Parser inner) =
                     config.item
 
-                go : Bool -> List item -> List token -> PStep token (List item)
-                go first acc queue =
+                go : Bool -> List item -> Location -> List (Node token) -> PStep token (List item)
+                go first acc position queue =
                     case queue of
                         [] ->
-                            ExpectingToken config.end
-                                |> Rope.singleton
-                                |> Bad True
+                            errorAt True position (ExpectingToken config.end)
 
-                        head :: tail ->
+                        (Node range head) :: tail ->
                             if head == config.end && (first || config.trailing == Optional) then
-                                Good True (List.reverse acc) tail
+                                Good True (List.reverse acc) range.end tail
 
                             else if first then
-                                case inner queue of
+                                case inner position queue of
                                     Bad _ errs ->
                                         Bad True errs
 
-                                    Good _ result rest ->
-                                        go False (result :: acc) rest
+                                    Good _ result newPosition rest ->
+                                        go False (result :: acc) newPosition rest
 
                             else if head /= config.separator then
-                                ExpectingToken config.separator
-                                    |> Rope.singleton
-                                    |> Bad True
+                                errorAt True range.start (ExpectingToken config.separator)
 
                             else if config.trailing == Forbidden then
-                                case inner tail of
+                                case inner position tail of
                                     Bad _ errs ->
                                         Bad True errs
 
-                                    Good _ result rest ->
-                                        go False (result :: acc) rest
-
-                            else if List.head tail == Just config.end then
-                                Good True (List.reverse acc) (List.drop 1 tail)
+                                    Good _ result newPosition rest ->
+                                        go False (result :: acc) newPosition rest
 
                             else
-                                case inner tail of
-                                    Bad _ errs ->
-                                        Bad True errs
+                                case tail of
+                                    (Node nextRange next) :: rest ->
+                                        if next == config.end then
+                                            Good True (List.reverse acc) nextRange.end rest
 
-                                    Good _ result rest ->
-                                        go False (result :: acc) rest
+                                        else
+                                            case inner position tail of
+                                                Bad _ errs ->
+                                                    Bad True errs
+
+                                                Good _ result newPosition rest_ ->
+                                                    go False (result :: acc) newPosition rest_
+
+                                    [] ->
+                                        case inner position tail of
+                                            Bad _ errs ->
+                                                Bad True errs
+
+                                            Good _ result newPosition rest_ ->
+                                                go False (result :: acc) newPosition rest_
             in
             case stream of
                 [] ->
-                    Bad False (Rope.singleton (ExpectingToken config.start))
+                    errorAt False initialPosition (ExpectingToken config.start)
 
-                head :: tail ->
+                (Node range head) :: tail ->
                     if head == config.start then
-                        go True [] tail
+                        go True [] range.end tail
 
                     else
-                        Bad False (Rope.singleton (ExpectingToken config.start))
+                        errorAt False initialPosition (ExpectingToken config.start)
         )
 
 
 problem : String -> Parser token v
 problem msg =
-    Parser (\_ -> Bad False (Rope.singleton (Problem msg)))
+    Parser
+        (\position _ ->
+            Bad False
+                (Rope.singleton
+                    { row = position.row
+                    , column = position.column
+                    , problem = Problem msg
+                    }
+                )
+        )
 
 
 end : Parser token ()
 end =
     Parser
-        (\stream ->
+        (\position stream ->
             if List.isEmpty stream then
-                Good True () []
+                Good True () position []
 
             else
-                Bad False (Rope.singleton ExpectingEnd)
+                Bad False
+                    (Rope.singleton
+                        { row = position.row
+                        , column = position.column
+                        , problem = ExpectingEnd
+                        }
+                    )
         )
 
 
-run : Parser token a -> List token -> Result (List (Error token)) a
+run : Parser token a -> List (Node token) -> Result (List (DeadEnd token)) a
 run (Parser parser) stream =
-    case parser stream of
-        Good _ result _ ->
+    case parser { row = 1, column = 1 } stream of
+        Good _ result _ _ ->
             Ok result
 
         Bad _ errors ->
