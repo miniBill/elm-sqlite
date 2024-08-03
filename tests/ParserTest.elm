@@ -3,8 +3,8 @@ module ParserTest exposing (suite)
 import Expect
 import Fuzz exposing (Fuzzer)
 import List.Extra
-import Parser.OfTokens as Parser exposing (Node)
-import Parser.Token exposing (Token)
+import Parser.OfTokens as Parser exposing (Node(..))
+import Parser.Token as Token exposing (Token)
 import Parser.Tokenizer
 import SQLite.Expr
 import SQLite.Statement as Statement
@@ -34,11 +34,23 @@ suite =
 
             else
                 [ view "Statement" Statement.toString statement
-                , view "Tokenized" Debug.toString tokenized
+                , view "Tokenized" tokenizedToString tokenized
                 , view "Parsed" (Result.map (Result.map Statement.toString) >> Debug.toString) actual
                 ]
                     |> String.join "\n"
                     |> Expect.fail
+
+
+tokenizedToString : Result String (List (Node Token)) -> String
+tokenizedToString tokenized =
+    case tokenized of
+        Err e ->
+            "Err: " ++ e
+
+        Ok tokens ->
+            tokens
+                |> List.map (\(Node _ t) -> Token.toString t)
+                |> String.join " "
 
 
 view : String -> (a -> String) -> a -> String
