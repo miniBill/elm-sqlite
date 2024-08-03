@@ -563,4 +563,35 @@ tableConstraintParser =
 
 tableOptionsParser : Parser Token TableOptions
 tableOptionsParser =
-    Parser.problem "TODO: CreateTable.tableOptionsParser"
+    let
+        inner : Parser Token TableOptions
+        inner =
+            Parser.oneOf
+                [ Parser.succeed { strict = False, withoutRowid = True }
+                    |> Parser.token_ Token.Without
+                    |> Parser.token_ (Token.Ident "ROWID")
+                , Parser.succeed { strict = True, withoutRowid = False }
+                    |> Parser.token_ (Token.Ident "STRICT")
+                ]
+
+        default : TableOptions
+        default =
+            { strict = False, withoutRowid = False }
+
+        combine : TableOptions -> TableOptions -> TableOptions
+        combine l r =
+            { strict = l.strict || r.strict
+            , withoutRowid = l.withoutRowid || r.withoutRowid
+            }
+    in
+    Parser.oneOf
+        [ Parser.succeed combine
+            |> Parser.keep inner
+            |> Parser.oneOf_
+                [ Parser.succeed identity
+                    |> Parser.token_ Token.Comma
+                    |> Parser.keep inner
+                , Parser.succeed default
+                ]
+        , Parser.succeed default
+        ]
