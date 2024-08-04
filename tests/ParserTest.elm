@@ -6,6 +6,7 @@ import List.Extra
 import Parser.OfTokens as Parser exposing (Node(..), Parser)
 import Parser.Token as Token exposing (Token)
 import Parser.Tokenizer
+import Result.Extra
 import Rope exposing (Rope)
 import SQLite.Expr
 import SQLite.Statement as Statement
@@ -71,16 +72,47 @@ checkRoundtrip label fuzzer toRope parser =
 parseResultToString : (a -> Rope String) -> String -> Result (List (Parser.DeadEnd Token)) a -> String
 parseResultToString toRope input result =
     case result of
-        Err e ->
+        Err errs ->
             let
                 lines : List String
                 lines =
                     String.split "\n" input
             in
-            e
+            errs
+                |> List.Extra.gatherEqualsBy (\{ row, column } -> ( row, column ))
                 |> List.map
-                    (\{ row, column, problem } ->
-                        viewProblem lines row column (Debug.toString problem)
+                    (\( { row, column, problem }, others ) ->
+                        let
+                            ( problems, expecting ) =
+                                (problem :: List.map .problem others)
+                                    |> List.map errorToString
+                                    |> Result.Extra.partition
+
+                            message : String
+                            message =
+                                [ case expecting of
+                                    [] ->
+                                        Nothing
+
+                                    [ e ] ->
+                                        Just ("Expecting: " ++ e)
+
+                                    es ->
+                                        Just ("Expecting one of " ++ String.join " or " es)
+                                , case problems of
+                                    [] ->
+                                        Nothing
+
+                                    [ p ] ->
+                                        Just ("Problem: " ++ p)
+
+                                    ps ->
+                                        Just ("Problems: " ++ String.join " or " ps)
+                                ]
+                                    |> List.filterMap identity
+                                    |> String.join "\n"
+                        in
+                        viewProblem lines row column message
                     )
                 |> String.join "\n\n--- OR ---\n\n"
 
@@ -88,8 +120,21 @@ parseResultToString toRope input result =
             Types.ropeToString (toRope s)
 
 
+errorToString : Parser.Error Token -> Result String String
+errorToString error =
+    case error of
+        Parser.Problem p ->
+            Ok p
+
+        Parser.ExpectingEnd ->
+            Err "end"
+
+        Parser.ExpectingToken t ->
+            Err (Token.toString t)
+
+
 viewProblem : List String -> Int -> Int -> String -> String
-viewProblem lines row column problem =
+viewProblem lines row column message =
     let
         pre : String
         pre =
@@ -112,13 +157,19 @@ viewProblem lines row column problem =
                 |> List.drop row
                 |> List.take 2
                 |> String.join "\n"
+
+        addMarker : String -> String
+        addMarker problemLine =
+            String.repeat (column - 1) " " ++ "^-- " ++ problemLine
     in
     pre
         ++ current
         ++ "\n"
-        ++ String.repeat (column - 1) " "
-        ++ "^-- "
-        ++ Debug.toString problem
+        ++ (message
+                |> String.split "\n"
+                |> List.map addMarker
+                |> String.join "\n"
+           )
         ++ "\n"
         ++ post
 
