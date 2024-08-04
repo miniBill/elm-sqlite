@@ -463,6 +463,15 @@ idFuzzer =
         |> Fuzz.oneOfValues
         |> Fuzz.listOfLengthBetween 1 10
         |> Fuzz.map String.fromList
+        |> Fuzz.map
+            (\s ->
+                case Token.fromString (String.toUpper s) of
+                    Nothing ->
+                        s
+
+                    Just _ ->
+                        s ++ "_"
+            )
 
 
 
