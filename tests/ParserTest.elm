@@ -12,7 +12,7 @@ import TestCommon exposing (testOutputRow, tokenizedToString)
 
 agencies : Test
 agencies =
-    justParseStatement "CREATE TABLE agencies"
+    justParseStatement
         """CREATE TABLE agencies (
             feed TEXT NOT NULL,
             agency_id TEXT NOT NULL,
@@ -32,7 +32,7 @@ agencies =
 
 stops : Test
 stops =
-    justParseStatement "CREATE TABLE stops"
+    justParseStatement
         """CREATE TABLE stops (
             feed TEXT NOT NULL,
             stop_id TEXT NOT NULL,
@@ -73,7 +73,7 @@ stops =
 
 routes : Test
 routes =
-    justParseStatement "CREATE TABLE routes"
+    justParseStatement
         """CREATE TABLE routes (
             feed TEXT NOT NULL,
             route_id TEXT NOT NULL,
@@ -105,7 +105,7 @@ routes =
 
 trips : Test
 trips =
-    justParseStatement "CREATE TABLE trips"
+    justParseStatement
         """CREATE TABLE trips (
             feed TEXT NOT NULL,
             route_id TEXT NOT NULL,
@@ -134,7 +134,7 @@ trips =
 
 stop_times : Test
 stop_times =
-    justParseStatement "CREATE TABLE stop_times"
+    justParseStatement
         """CREATE TABLE stop_times (
             feed TEXT NOT NULL,
             trip_id TEXT NOT NULL,
@@ -186,7 +186,7 @@ stop_times =
 
 calendars : Test
 calendars =
-    justParseStatement "CREATE TABLE calendars"
+    justParseStatement
         """CREATE TABLE calendars (
             feed TEXT NOT NULL,
             service_id TEXT NOT NULL,
@@ -208,7 +208,7 @@ calendars =
 
 calendar_dates : Test
 calendar_dates =
-    justParseStatement "CREATE TABLE calendar_dates"
+    justParseStatement
         """CREATE TABLE calendar_dates (
             feed TEXT NOT NULL,
             service_id TEXT NOT NULL,
@@ -224,7 +224,7 @@ calendar_dates =
 
 areas : Test
 areas =
-    justParseStatement "CREATE TABLE areas"
+    justParseStatement
         """CREATE TABLE areas (
             feed TEXT NOT NULL,
             area_id TEXT NOT NULL,
@@ -238,7 +238,7 @@ areas =
 
 stop_areas : Test
 stop_areas =
-    justParseStatement "CREATE TABLE stop_areas"
+    justParseStatement
         """CREATE TABLE stop_areas (
             feed TEXT NOT NULL,
             area_id TEXT NOT NULL,
@@ -267,7 +267,7 @@ stop_areas =
 
 networks : Test
 networks =
-    justParseStatement "CREATE TABLE networks"
+    justParseStatement
         """CREATE TABLE networks (
             feed TEXT NOT NULL,
             network_id TEXT NOT NULL,
@@ -281,7 +281,7 @@ networks =
 
 route_networks : Test
 route_networks =
-    justParseStatement "CREATE TABLE route_networks"
+    justParseStatement
         """CREATE TABLE route_networks (
             feed TEXT NOT NULL,
             network_id TEXT NOT NULL,
@@ -309,7 +309,7 @@ route_networks =
 
 shape_points : Test
 shape_points =
-    justParseStatement "CREATE TABLE shape_points"
+    justParseStatement
         """CREATE TABLE shape_points (
             feed TEXT NOT NULL,
             shape_id TEXT NOT NULL,
@@ -327,7 +327,7 @@ shape_points =
 
 frequencies : Test
 frequencies =
-    justParseStatement "CREATE TABLE frequencies"
+    justParseStatement
         """CREATE TABLE frequencies (
             feed TEXT NOT NULL,
             trip_id TEXT NOT NULL,
@@ -352,7 +352,7 @@ frequencies =
 
 pathways : Test
 pathways =
-    justParseStatement "CREATE TABLE pathways"
+    justParseStatement
         """CREATE TABLE pathways (
             feed TEXT NOT NULL,
             pathway_id TEXT NOT NULL,
@@ -390,7 +390,7 @@ pathways =
 
 levels : Test
 levels =
-    justParseStatement "CREATE TABLE levels"
+    justParseStatement
         """CREATE TABLE levels (
             feed TEXT NOT NULL,
             level_id TEXT NOT NULL,
@@ -405,7 +405,7 @@ levels =
 
 location_groups : Test
 location_groups =
-    justParseStatement "CREATE TABLE location_groups"
+    justParseStatement
         """CREATE TABLE location_groups (
             feed TEXT NOT NULL,
             location_group_id TEXT NOT NULL,
@@ -417,9 +417,14 @@ location_groups =
         ) STRICT"""
 
 
-justParseStatement : String -> String -> Test
-justParseStatement label input =
-    testParse label Statement.parser Statement.toRope input Nothing
+justParseStatement : String -> Test
+justParseStatement input =
+    testParse
+        (input |> String.split "\n" |> List.take 1 |> String.concat)
+        Statement.parser
+        Statement.toRope
+        input
+        Nothing
 
 
 testParse :
