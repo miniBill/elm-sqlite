@@ -1,5 +1,6 @@
 module ParserTest exposing (suite)
 
+import Ansi.Color
 import Expect
 import Fuzz exposing (Fuzzer)
 import List.Extra
@@ -162,7 +163,7 @@ viewProblem lines row column messages =
         addMarker : Int -> String -> String
         addMarker index problemLine =
             if index == 0 then
-                String.repeat (column - 1) " " ++ "^-- " ++ problemLine
+                String.repeat (column - 1) " " ++ Ansi.Color.fontColor Ansi.Color.brightRed "^-- " ++ problemLine
 
             else
                 String.repeat (column + 3) " " ++ problemLine
@@ -187,7 +188,7 @@ tokenizedToString tokens =
 
 view : String -> (a -> String) -> a -> String
 view label toString value =
-    label ++ ":\n" ++ indent 4 (toString value)
+    Ansi.Color.fontColor Ansi.Color.cyan label ++ ":\n" ++ indent 4 (toString value)
 
 
 indent : Int -> String -> String

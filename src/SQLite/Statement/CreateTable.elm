@@ -665,6 +665,8 @@ tableConstraintParser =
                 |> Parser.keep Expr.parser
                 |> Parser.token_ Token.ParensClose
             , Parser.succeed TableForeignKey
+                |> Parser.token_ Token.Foreign
+                |> Parser.token_ Token.Key
                 |> Parser.sequence_
                     { start = Token.ParensOpen
                     , end = Token.ParensClose
