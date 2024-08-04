@@ -286,8 +286,8 @@ literalValueFuzzer =
 
         -- , Fuzz.map SQLite.Expr.BlobLiteral bytesFuzzer
         , Fuzz.constant SQLite.Expr.Null
-        , Fuzz.constant SQLite.Expr.True
-        , Fuzz.constant SQLite.Expr.False
+        , Fuzz.constant SQLite.Expr.True_
+        , Fuzz.constant SQLite.Expr.False_
         , Fuzz.constant SQLite.Expr.CurrentTime
         , Fuzz.constant SQLite.Expr.CurrentDate
         , Fuzz.constant SQLite.Expr.CurrentTimestamp

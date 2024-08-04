@@ -1,7 +1,15 @@
-module SQLite.Expr exposing (Expr(..), LiteralValue(..), literalValueToString, toRope)
+module SQLite.Expr exposing (Expr(..), LiteralValue(..), literalValueToString, parser, toRope)
+
+{-|
+
+@docs Expr, LiteralValue, literalValueToString, parser, toRope
+
+-}
 
 import Bytes exposing (Bytes)
 import Hex.Convert
+import Parser.OfTokens as Parser exposing (Parser)
+import Parser.Token exposing (Token)
 import Rope exposing (Rope)
 
 
@@ -15,8 +23,8 @@ type LiteralValue
     | StringLiteral String
     | BlobLiteral Bytes
     | Null
-    | True
-    | False
+    | True_
+    | False_
     | CurrentTime
     | CurrentDate
     | CurrentTimestamp
@@ -47,10 +55,10 @@ literalValueToString literal =
         Null ->
             "NULL"
 
-        True ->
+        True_ ->
             "TRUE"
 
-        False ->
+        False_ ->
             "FALSE"
 
         CurrentTime ->
@@ -61,3 +69,8 @@ literalValueToString literal =
 
         CurrentTimestamp ->
             "CURRENT_TIMESTAMP"
+
+
+parser : Parser Token Expr
+parser =
+    Parser.problem "Expr.parser"

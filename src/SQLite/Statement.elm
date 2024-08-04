@@ -58,8 +58,8 @@ type InnerStatement
 parser : Parser Token Statement
 parser =
     Parser.succeed Statement
-        |> Parser.oneOf_
-            [ Parser.succeed Just
+        |> Parser.maybe_
+            (Parser.succeed identity
                 |> Parser.token_ Token.Explain
                 |> Parser.oneOf_
                     [ Parser.succeed ExplainQueryPlan
@@ -67,8 +67,7 @@ parser =
                         |> Parser.token_ Token.Plan
                     , Parser.succeed Explain
                     ]
-            , Parser.succeed Nothing
-            ]
+            )
         |> Parser.oneOf_
             (let
                 _ =

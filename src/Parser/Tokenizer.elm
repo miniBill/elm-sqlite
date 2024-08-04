@@ -85,6 +85,34 @@ tokenizerHelper position input inputUppercase acc =
                 in
                 tokenizerHelper next newInput newInputUppercase (node token :: acc)
 
+            else if Char.isDigit head then
+                let
+                    ( tokenContent, newInput ) =
+                        input
+                            |> List.Extra.span (\c -> c == '.' || Char.isDigit c)
+                            |> Tuple.mapFirst String.fromList
+                in
+                case String.toFloat tokenContent of
+                    Nothing ->
+                        Err ("Could not parse " ++ tokenContent ++ " as number")
+
+                    Just f ->
+                        let
+                            next : Location
+                            next =
+                                { position | column = position.column + String.length tokenContent }
+
+                            node : a -> Node a
+                            node t =
+                                Node { start = position, end = next } t
+
+                            newInputUppercase : List Char
+                            newInputUppercase =
+                                inputUppercase
+                                    |> List.Extra.dropWhile (\c -> c == '.' || Char.isDigit c)
+                        in
+                        tokenizerHelper next newInput newInputUppercase (node (Token.Number f) :: acc)
+
             else
                 Err ("Unexpected char: " ++ String.fromChar head)
 

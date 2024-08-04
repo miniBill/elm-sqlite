@@ -1,5 +1,7 @@
-module SQLite.Types exposing (AscDesc(..), ConflictClause(..), Type(..), ascDescToString, ropeToString, typeToString)
+module SQLite.Types exposing (AscDesc(..), ConflictClause(..), Type(..), ascDescToString, ropeToString, typeParser, typeToString)
 
+import Parser.OfTokens as Parser exposing (Parser)
+import Parser.Token exposing (Token)
 import Rope exposing (Rope)
 
 
@@ -98,3 +100,8 @@ type ConflictClause
     | Fail
     | Ignore
     | Replace
+
+
+typeParser : Parser Token Type
+typeParser =
+    Parser.problem "Types.typeParser"

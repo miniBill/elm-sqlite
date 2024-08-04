@@ -1,11 +1,8 @@
-module Parser.Token exposing
-    ( Token(..), fromString
-    , toString
-    )
+module Parser.Token exposing (Token(..), fromString, toString)
 
 {-|
 
-@docs Token, fromString
+@docs Token, fromString, toString
 
 -}
 
@@ -77,7 +74,6 @@ type Token
     | Group
     | Groups
     | Having
-    | Ident String
     | If
     | Ignore
     | Immediate
@@ -164,6 +160,8 @@ type Token
     | Window
     | With
     | Without
+    | Ident String
+    | Number Float
 
 
 fromString : String -> Maybe Token
@@ -1078,3 +1076,6 @@ toString input =
 
         Ident i ->
             i
+
+        Number f ->
+            String.fromFloat f

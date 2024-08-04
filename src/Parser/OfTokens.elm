@@ -1,8 +1,11 @@
-module Parser.OfTokens exposing (DeadEnd, Error(..), Location, Node(..), PStep(..), Parser, Trailing(..), custom_, end, errorAt, keep, map, oneOf, oneOf_, problem, run, sequence_, skip, succeed, token, token_)
+module Parser.OfTokens exposing
+    ( DeadEnd, Error(..), Location, Node(..), PStep(..), Parser, Trailing(..), custom, custom_, end, errorAt, keep, map, oneOf, oneOf_, problem, run, sequence_, skip, succeed, token, token_
+    , many, many_, maybe_
+    )
 
 {-|
 
-@docs DeadEnd, Error, Location, Node, PStep, Parser, Trailing, custom_, end, errorAt, keep, map, oneOf, oneOf_, problem, run, sequence_, skip, succeed, token, token_
+@docs DeadEnd, Error, Location, Node, PStep, Parser, Trailing, custom, custom_, end, errorAt, keep, map, oneOf, oneOf_, problem, run, sequence_, skip, succeed, token, token_
 
 -}
 
@@ -81,7 +84,7 @@ keep (Parser second) (Parser first) =
                 Good firstCommitted f newPosition tail ->
                     case second newPosition tail of
                         Bad secondCommitted e ->
-                            Bad secondCommitted e
+                            Bad (firstCommitted || secondCommitted) e
 
                         Good secondCommitted s lastPosition next ->
                             Good (firstCommitted || secondCommitted) (f s) lastPosition next
@@ -99,7 +102,7 @@ skip (Parser second) (Parser first) =
                 Good firstCommitted f newPosition tail ->
                     case second newPosition tail of
                         Bad secondCommitted e ->
-                            Bad secondCommitted e
+                            Bad (firstCommitted || secondCommitted) e
 
                         Good secondCommitted () lastPosition next ->
                             Good (firstCommitted || secondCommitted) f lastPosition next
@@ -219,10 +222,10 @@ sequence config =
                 go first acc position queue =
                     case queue of
                         [] ->
-                            errorAt True position (ExpectingToken config.end)
+                            errorAt True position (Problem "222" {- ExpectingToken config.end -})
 
                         (Node range head) :: tail ->
-                            if head == config.end && (first || config.trailing == Optional) then
+                            if head == config.end && (first || config.trailing /= Mandatory) then
                                 Good True (List.reverse acc) range.end tail
 
                             else if first then
@@ -234,7 +237,7 @@ sequence config =
                                         go False (result :: acc) newPosition rest
 
                             else if head /= config.separator then
-                                errorAt True range.start (ExpectingToken config.separator)
+                                errorAt True range.start (Problem "237" {- ExpectingToken config.separator -})
 
                             else if config.trailing == Forbidden then
                                 case inner position tail of
@@ -319,3 +322,47 @@ run (Parser parser) stream =
 
         Bad _ errors ->
             Err (Rope.toList errors)
+
+
+maybe_ :
+    Parser token a
+    -> Parser token (Maybe a -> b)
+    -> Parser token b
+maybe_ inner main =
+    main |> keep (maybe inner)
+
+
+maybe : Parser token a -> Parser token (Maybe a)
+maybe parser =
+    oneOf
+        [ map Just parser
+        , succeed Nothing
+        ]
+
+
+many_ : Parser token a -> Parser token (List a -> b) -> Parser token b
+many_ inner main =
+    main |> keep (many inner)
+
+
+many : Parser token a -> Parser token (List a)
+many parser =
+    Parser (\position stream -> manyHelper parser [] position stream)
+
+
+manyHelper :
+    Parser token a
+    -> List a
+    -> Location
+    -> List (Node token)
+    -> PStep token (List a)
+manyHelper (Parser inner) acc position stream =
+    case inner position stream of
+        Bad True errs ->
+            Bad True errs
+
+        Bad False _ ->
+            Good (not (List.isEmpty acc)) (List.reverse acc) position stream
+
+        Good _ el newPosition newStream ->
+            manyHelper (Parser inner) (el :: acc) newPosition newStream

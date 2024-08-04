@@ -553,12 +553,134 @@ definitionParser =
 
 columnDefinitionParser : Parser Token ColumnDefinition
 columnDefinitionParser =
-    Parser.problem "TODO: CreateTable.columnDefinitionParser"
+    Parser.succeed ColumnDefinition
+        |> Parser.keep ident
+        |> Parser.maybe_ Types.typeParser
+        |> Parser.many_ columnConstraintParser
+
+
+columnConstraintParser : Parser Token ColumnConstraint
+columnConstraintParser =
+    Parser.problem "CreateTable.columnConstraintParser"
 
 
 tableConstraintParser : Parser Token TableConstraint
 tableConstraintParser =
-    Parser.problem "TODO: CreateTable.tableConstraintParser"
+    Parser.succeed TableConstraint
+        |> Parser.maybe_
+            (Parser.succeed identity
+                |> Parser.token_ Token.Constraint
+                |> Parser.keep ident
+            )
+        |> Parser.oneOf_
+            [ Parser.succeed TablePrimaryKey
+                |> Parser.token_ Token.Primary
+                |> Parser.token_ Token.Key
+                |> Parser.sequence_
+                    { start = Token.ParensOpen
+                    , end = Token.ParensClose
+                    , separator = Token.Comma
+                    , item = indexedColumnParser
+                    , trailing = Parser.Forbidden
+                    }
+                |> Parser.maybe_ conflictClauseParser
+            , Parser.succeed TableUnique
+                |> Parser.token_ Token.Unique
+                |> Parser.sequence_
+                    { start = Token.ParensOpen
+                    , end = Token.ParensClose
+                    , separator = Token.Comma
+                    , item = indexedColumnParser
+                    , trailing = Parser.Forbidden
+                    }
+                |> Parser.maybe_ conflictClauseParser
+            , Parser.succeed TableCheck
+                |> Parser.token_ Token.Check
+                |> Parser.token_ Token.ParensOpen
+                |> Parser.keep Expr.parser
+                |> Parser.token_ Token.ParensClose
+            , Parser.succeed TableForeignKey
+                |> Parser.sequence_
+                    { start = Token.ParensOpen
+                    , end = Token.ParensClose
+                    , separator = Token.Comma
+                    , item = ident
+                    , trailing = Parser.Forbidden
+                    }
+                |> Parser.keep foreignKeyClauseParser
+            ]
+
+
+foreignKeyClauseParser : Parser Token ForeignKeyClause
+foreignKeyClauseParser =
+    Parser.problem "CreateTable.foreignKeyClauseParser"
+
+
+conflictClauseParser : Parser Token ConflictClause
+conflictClauseParser =
+    Parser.succeed identity
+        |> Parser.token_ Token.On
+        |> Parser.token_ Token.Conflict
+        |> Parser.oneOf_
+            [ Parser.succeed Rollback |> Parser.token_ Token.Rollback
+            , Parser.succeed Abort |> Parser.token_ Token.Abort
+            , Parser.succeed Fail |> Parser.token_ Token.Fail
+            , Parser.succeed Ignore |> Parser.token_ Token.Ignore
+            , Parser.succeed Replace |> Parser.token_ Token.Replace
+            ]
+
+
+indexedColumnParser : Parser Token IndexedColumn
+indexedColumnParser =
+    Parser.succeed IndexedColumn
+        |> Parser.keep nameOrExprParser
+        |> Parser.maybe_
+            (Parser.succeed identity
+                |> Parser.token_ Token.Collate
+                |> Parser.keep ident
+            )
+        |> Parser.maybe_ ascDescParser
+
+
+ascDescParser : Parser Token AscDesc
+ascDescParser =
+    Parser.oneOf
+        [ Parser.succeed Types.Asc |> Parser.token_ Token.Asc
+        , Parser.succeed Types.Desc |> Parser.token_ Token.Desc
+        ]
+
+
+nameOrExprParser : Parser Token NameOrExpr
+nameOrExprParser =
+    Parser.oneOf
+        [ Expr.parser
+            |> Parser.map
+                (\expr ->
+                    let
+                        _ =
+                            Debug.todo
+                    in
+                    -- case expr of
+                    --     Expr.ColumnName Nothing Nothing name ->
+                    --         IsName name
+                    --     _ ->
+                    IsExpr expr
+                )
+        , Parser.map IsName ident
+        ]
+
+
+ident : Parser Token String
+ident =
+    Parser.custom
+        (\position stream ->
+            case stream of
+                (Node identRange (Token.Ident name)) :: tail ->
+                    Parser.Good True name identRange.end tail
+
+                _ ->
+                    Parser.errorAt False position (Parser.Problem "Expecting identifier")
+        )
 
 
 tableOptionsParser : Parser Token TableOptions
