@@ -19,7 +19,7 @@ import SQLite.Types as Types
 
 type alias Statement =
     { explain : Maybe Explain
-    , inner : InnerStatement
+    , statement : InnerStatement
     }
 
 
@@ -102,7 +102,7 @@ toRope statement =
                     Rope.singleton "EXPLAIN QUERY PLAN"
     in
     prefix
-        |> Rope.prependTo (toRopeInner statement.inner)
+        |> Rope.prependTo (toRopeInner statement.statement)
 
 
 toRopeInner : InnerStatement -> Rope String

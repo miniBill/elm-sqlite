@@ -31,7 +31,6 @@ type Token
     | Check
     | Collate
     | Column
-    | Comma
     | Commit
     | Conflict
     | Constraint
@@ -50,7 +49,6 @@ type Token
     | Detach
     | Distinct
     | Do
-    | Dot
     | Drop
     | Each
     | Else
@@ -112,8 +110,6 @@ type Token
     | Others
     | Outer
     | Over
-    | ParensClose
-    | ParensOpen
     | Partition
     | Plan
     | Pragma
@@ -160,6 +156,11 @@ type Token
     | Window
     | With
     | Without
+    | Comma
+    | Semicolon
+    | Dot
+    | ParensClose
+    | ParensOpen
     | Ident String
     | Number Float
     | String String
@@ -1074,6 +1075,9 @@ toString input =
 
         Dot ->
             "."
+
+        Semicolon ->
+            ";"
 
         Ident i ->
             i

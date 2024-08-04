@@ -51,6 +51,13 @@ tokenizerHelper position input inputUppercase acc =
             in
             tokenizerHelper next (List.drop 1 input) tail (token :: acc)
 
+        ';' :: tail ->
+            let
+                ( next, token ) =
+                    build Token.Semicolon
+            in
+            tokenizerHelper next (List.drop 1 input) tail (token :: acc)
+
         '.' :: tail ->
             let
                 ( next, token ) =
@@ -127,7 +134,7 @@ tokenizerHelper position input inputUppercase acc =
                         tokenizerHelper next newInput newInputUppercase (node (Token.Number f) :: acc)
 
             else
-                Err ( position, "Unexpected char: " ++ String.fromChar head )
+                Err ( position, "Unexpected char '" ++ String.fromChar head ++ "'" )
 
 
 chompString : Location -> List Char -> List Char -> List Char -> Result ( Location, String ) ( String, ( Location, List Char, List Char ) )
