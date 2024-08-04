@@ -8,8 +8,8 @@ module SQLite.Expr exposing (Expr(..), LiteralValue(..), literalValueToString, p
 
 import Bytes exposing (Bytes)
 import Hex.Convert
-import Parser.OfTokens as Parser exposing (Parser)
-import Parser.Token exposing (Token)
+import Parser.OfTokens as Parser exposing (Node(..), PStep(..), Parser)
+import Parser.Token as Token exposing (Token)
 import Rope exposing (Rope)
 
 
@@ -73,4 +73,20 @@ literalValueToString literal =
 
 parser : Parser Token Expr
 parser =
-    Parser.problem "Expr.parser"
+    Parser.oneOf
+        [ Parser.map LiteralValue literalValueParser
+        , Parser.problem "Expr.parser"
+        ]
+
+
+literalValueParser : Parser Token LiteralValue
+literalValueParser =
+    Parser.custom
+        (\position stream ->
+            case stream of
+                (Node range (Token.Number f)) :: tail ->
+                    Good True (NumericLiteral f) range.end tail
+
+                _ ->
+                    Parser.errorAt False position (Parser.Problem "Expr.literalValueParser")
+        )
