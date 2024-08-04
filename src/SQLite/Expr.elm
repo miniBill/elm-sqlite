@@ -1,8 +1,8 @@
-module SQLite.Expr exposing (Expr(..), LiteralValue(..), literalValueToString, parser, toRope)
+module SQLite.Expr exposing (Expr(..), LiteralValue(..), literalValueToString, literalValueParser, parser, toRope)
 
 {-|
 
-@docs Expr, LiteralValue, literalValueToString, parser, toRope
+@docs Expr, LiteralValue, literalValueToString, literalValueParser, parser, toRope
 
 -}
 

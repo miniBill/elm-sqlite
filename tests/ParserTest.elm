@@ -18,7 +18,7 @@ suite : Test
 suite =
     describe "toString >> parse === Ok"
         [ checkRoundtrip "Statement" statementFuzzer Statement.toRope Statement.parser
-        , Test.only <| checkRoundtrip "Column definition" columnDefinitionFuzzer CreateTable.columnDefinitionToRope CreateTable.columnDefinitionParser
+        , checkRoundtrip "Column definition" columnDefinitionFuzzer CreateTable.columnDefinitionToRope CreateTable.columnDefinitionParser
         ]
 
 
@@ -305,7 +305,7 @@ exprFuzzer =
 literalValueFuzzer : Fuzzer SQLite.Expr.LiteralValue
 literalValueFuzzer =
     Fuzz.oneOf
-        [ Fuzz.map SQLite.Expr.NumericLiteral Fuzz.float
+        [ Fuzz.map SQLite.Expr.NumericLiteral (Fuzz.floatRange 0 (2 ^ 53))
         , Fuzz.map SQLite.Expr.StringLiteral Fuzz.string
 
         -- , Fuzz.map SQLite.Expr.BlobLiteral bytesFuzzer

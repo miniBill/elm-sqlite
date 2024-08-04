@@ -1,11 +1,8 @@
-module SQLite.Statement.CreateTable exposing
-    ( ColumnConstraint, ColumnDefinition, ForeignKeyClause, GeneratedColumnStorage(..), IndexedColumn, InnerColumnConstraint(..), InnerTableConstraint(..), NameOrExpr(..), OnDeleteUpdate(..), Statement, TableConstraint, TableDefinition(..), TableOptions, parser, toRope
-    , columnDefinitionParser, columnDefinitionToRope
-    )
+module SQLite.Statement.CreateTable exposing (ColumnConstraint, ColumnDefinition, ForeignKeyClause, GeneratedColumnStorage(..), IndexedColumn, InnerColumnConstraint(..), InnerTableConstraint(..), NameOrExpr(..), OnDeleteUpdate(..), Statement, TableConstraint, TableDefinition(..), TableOptions, columnDefinitionParser, columnDefinitionToRope, parser, toRope)
 
 {-|
 
-@docs ColumnConstraint, ColumnDefinition, ForeignKeyClause, GeneratedColumnStorage, IndexedColumn, InnerColumnConstraint, InnerTableConstraint, NameOrExpr, OnDeleteUpdate, Statement, TableConstraint, TableDefinition, TableOptions, parser, toRope
+@docs ColumnConstraint, ColumnDefinition, ForeignKeyClause, GeneratedColumnStorage, IndexedColumn, InnerColumnConstraint, InnerTableConstraint, NameOrExpr, OnDeleteUpdate, Statement, TableConstraint, TableDefinition, TableOptions, columnDefinitionParser, columnDefinitionToRope, parser, toRope
 
 -}
 
@@ -594,12 +591,15 @@ columnConstraintParser =
                 |> Parser.keep Expr.parser
                 |> Parser.token_ Token.ParensClose
             , Parser.succeed ColumnDefault
+                |> Parser.token_ Token.Default
                 |> Parser.oneOf_
                     [ Parser.succeed identity
                         |> Parser.token_ Token.ParensOpen
                         |> Parser.keep Expr.parser
                         |> Parser.token_ Token.ParensClose
-                    , Parser.problem "CreateTable.columnConstraintParser"
+                    , Parser.succeed Expr.LiteralValue
+                        |> Parser.keep Expr.literalValueParser
+                    , Parser.problem "columnConstraintParser.signedNumber"
                     ]
             , Parser.succeed ColumnCollate
                 |> Parser.token_ Token.Collate
@@ -678,7 +678,61 @@ tableConstraintParser =
 
 foreignKeyClauseParser : Parser Token ForeignKeyClause
 foreignKeyClauseParser =
-    Parser.problem "CreateTable.foreignKeyClauseParser"
+    Parser.succeed
+        (\foreignTable columnNames updaters defer ->
+            List.foldl (\e a -> e a)
+                { foreignTable = foreignTable
+                , columnNames = columnNames
+                , onUpdate = Nothing
+                , onDelete = Nothing
+                , match = Nothing
+                , defer = defer
+                }
+                updaters
+        )
+        |> Parser.token_ Token.References
+        |> Parser.keep ident
+        |> Parser.oneOf_
+            [ Parser.sequence
+                { start = Token.ParensOpen
+                , end = Token.ParensClose
+                , item = ident
+                , separator = Token.Comma
+                , trailing = Parser.Forbidden
+                }
+            , Parser.succeed []
+            ]
+        |> Parser.many_
+            (Parser.oneOf
+                [ Parser.succeed identity
+                    |> Parser.token_ Token.On
+                    |> Parser.oneOf_
+                        [ Parser.succeed (\onDelete val -> { val | onDelete = Just onDelete })
+                            |> Parser.token_ Token.Delete
+                        , Parser.succeed (\onUpdate val -> { val | onUpdate = Just onUpdate })
+                            |> Parser.token_ Token.Update
+                        ]
+                    |> Parser.oneOf_
+                        [ Parser.succeed identity
+                            |> Parser.token_ Token.Set
+                            |> Parser.oneOf_
+                                [ Parser.succeed SetNull |> Parser.token_ Token.Null
+                                , Parser.succeed SetDefault |> Parser.token_ Token.Default
+                                ]
+                        , Parser.succeed Cascade
+                            |> Parser.token_ Token.Cascade
+                        , Parser.succeed Restrict
+                            |> Parser.token_ Token.Restrict
+                        , Parser.succeed NoAction
+                            |> Parser.token_ Token.No
+                            |> Parser.token_ Token.Action
+                        ]
+                , Parser.succeed (\match val -> { val | match = Just match })
+                    |> Parser.token_ Token.Match
+                    |> Parser.keep ident
+                ]
+            )
+        |> Parser.maybe_ (Parser.problem "CreateTable.foreignKeyClauseParser")
 
 
 conflictClauseParser : Parser Token ConflictClause

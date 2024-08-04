@@ -1,8 +1,8 @@
-module Parser.OfTokens exposing (DeadEnd, Error(..), Location, Node(..), PStep(..), Parser, Range, Trailing(..), custom, custom_, end, errorAt, keep, many, many_, map, maybe_, oneOf, oneOf_, problem, run, sequence_, skip, succeed, token, token_)
+module Parser.OfTokens exposing (DeadEnd, Error(..), Location, Node(..), PStep(..), Parser, Range, Trailing(..), custom, custom_, end, errorAt, keep, many, many_, map, maybe_, oneOf, oneOf_, problem, run, sequence, sequence_, skip, succeed, token, token_)
 
 {-|
 
-@docs DeadEnd, Error, Location, Node, PStep, Parser, Range, Trailing, custom, custom_, end, errorAt, keep, many, many_, map, maybe_, oneOf, oneOf_, problem, run, sequence_, skip, succeed, token, token_
+@docs DeadEnd, Error, Location, Node, PStep, Parser, Range, Trailing, custom, custom_, end, errorAt, keep, many, many_, map, maybe_, oneOf, oneOf_, problem, run, sequence, sequence_, skip, succeed, token, token_
 
 -}
 
