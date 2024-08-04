@@ -35,9 +35,6 @@ checkRoundtrip label fuzzer toRope parser =
                     value
                         |> toRope
                         |> Types.ropeToString
-                        |> String.split "\n"
-                        |> List.Extra.removeWhen (\line -> line |> String.trim |> String.isEmpty)
-                        |> String.join "\n"
 
                 valueView : String
                 valueView =
