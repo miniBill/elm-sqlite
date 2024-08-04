@@ -9,7 +9,7 @@ import Parser.Token as Token exposing (Token)
 import Parser.Tokenizer
 import Result.Extra
 import Rope exposing (Rope)
-import SQLite.Expr
+import SQLite.Expr as Expr
 import SQLite.Statement as Statement
 import SQLite.Statement.CreateTable as CreateTable
 import SQLite.Types as Types
@@ -21,6 +21,7 @@ suite =
     describe "toString >> parse === Ok"
         [ checkRoundtrip "Statement" statementFuzzer Statement.toRope Statement.parser
         , checkRoundtrip "Column definition" columnDefinitionFuzzer CreateTable.columnDefinitionToRope CreateTable.columnDefinitionParser
+        , Test.only (checkRoundtrip "Literal value" literalValueFuzzer Expr.literalValueToRope Expr.literalValueParser)
         ]
 
 
@@ -37,6 +38,10 @@ checkRoundtrip label fuzzer toRope parser =
                         |> String.split "\n"
                         |> List.Extra.removeWhen (\line -> line |> String.trim |> String.isEmpty)
                         |> String.join "\n"
+
+                valueView : String
+                valueView =
+                    valueString ++ "\n" ++ Ansi.Color.fontColor Ansi.Color.brightBlack (Debug.toString value)
             in
             case Parser.Tokenizer.tokenizer valueString of
                 Ok tokenized ->
@@ -50,9 +55,9 @@ checkRoundtrip label fuzzer toRope parser =
                         Expect.pass
 
                     else
-                        [ view label identity valueString
-                        , view "Tokenized" tokenizedToString tokenized
-                        , view "Parsed" (parseResultToString toRope valueString) parsed
+                        [ view label valueView
+                        , view "Tokenized" (tokenizedToString tokenized)
+                        , view "Parsed" (parseResultToString toRope valueString parsed)
                         ]
                             |> String.join "\n"
                             |> Expect.fail
@@ -63,8 +68,8 @@ checkRoundtrip label fuzzer toRope parser =
                         lines =
                             String.split "\n" valueString
                     in
-                    [ view label identity valueString
-                    , view "Tokenized" (viewProblem lines location.row location.column) [ e ]
+                    [ view label valueView
+                    , view "Tokenized" (viewProblem lines location.row location.column [ e ])
                     ]
                         |> String.join "\n"
                         |> Expect.fail
@@ -119,7 +124,7 @@ parseResultToString toRope input result =
                 |> String.join "\n\n--- OR ---\n\n"
 
         Ok s ->
-            Types.ropeToString (toRope s)
+            Types.ropeToString (toRope s) ++ "\n" ++ Ansi.Color.fontColor Ansi.Color.brightBlack (Debug.toString s)
 
 
 errorToString : Parser.Error Token -> Result String String
@@ -186,9 +191,11 @@ tokenizedToString tokens =
         |> String.join " "
 
 
-view : String -> (a -> String) -> a -> String
-view label toString value =
-    Ansi.Color.fontColor Ansi.Color.cyan label ++ ":\n" ++ indent 4 (toString value)
+view : String -> String -> String
+view label value =
+    Ansi.Color.fontColor Ansi.Color.cyan label
+        ++ ":\n"
+        ++ indent 4 value
 
 
 indent : Int -> String -> String
@@ -349,28 +356,28 @@ conflictClauseFuzzer =
         ]
 
 
-exprFuzzer : Fuzzer SQLite.Expr.Expr
+exprFuzzer : Fuzzer Expr.Expr
 exprFuzzer =
     Fuzz.oneOf
-        [ Fuzz.map SQLite.Expr.LiteralValue literalValueFuzzer
+        [ Fuzz.map Expr.LiteralValue literalValueFuzzer
 
-        -- , Fuzz.map SQLite.Expr.OTHERS neverFuzzer
+        -- , Fuzz.map Expr.OTHERS neverFuzzer
         ]
 
 
-literalValueFuzzer : Fuzzer SQLite.Expr.LiteralValue
+literalValueFuzzer : Fuzzer Expr.LiteralValue
 literalValueFuzzer =
     Fuzz.oneOf
-        [ Fuzz.map SQLite.Expr.NumericLiteral (Fuzz.floatRange 0 (2 ^ 53))
-        , Fuzz.map SQLite.Expr.StringLiteral Fuzz.string
+        [ Fuzz.map Expr.NumericLiteral (Fuzz.floatRange 0 (2 ^ 53))
+        , Fuzz.map Expr.StringLiteral Fuzz.string
 
-        -- , Fuzz.map SQLite.Expr.BlobLiteral bytesFuzzer
-        , Fuzz.constant SQLite.Expr.Null
-        , Fuzz.constant SQLite.Expr.True_
-        , Fuzz.constant SQLite.Expr.False_
-        , Fuzz.constant SQLite.Expr.CurrentTime
-        , Fuzz.constant SQLite.Expr.CurrentDate
-        , Fuzz.constant SQLite.Expr.CurrentTimestamp
+        -- , Fuzz.map Expr.BlobLiteral bytesFuzzer
+        , Fuzz.constant Expr.Null
+        , Fuzz.constant Expr.True_
+        , Fuzz.constant Expr.False_
+        , Fuzz.constant Expr.CurrentTime
+        , Fuzz.constant Expr.CurrentDate
+        , Fuzz.constant Expr.CurrentTimestamp
         ]
 
 

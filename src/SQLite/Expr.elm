@@ -1,4 +1,7 @@
-module SQLite.Expr exposing (Expr(..), LiteralValue(..), literalValueToString, literalValueParser, parser, toRope)
+module SQLite.Expr exposing
+    ( Expr(..), LiteralValue(..), literalValueToString, literalValueParser, parser, toRope
+    , literalValueToRope
+    )
 
 {-|
 
@@ -116,3 +119,8 @@ literalValueParser =
                 _ ->
                     Parser.errorAt False position (Parser.Problem "Expr.literalValueParser")
         )
+
+
+literalValueToRope : LiteralValue -> Rope String
+literalValueToRope literalValue =
+    Rope.singleton (literalValueToString literalValue)
