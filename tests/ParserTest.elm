@@ -63,7 +63,7 @@ checkRoundtrip label fuzzer toRope parser =
                             String.split "\n" valueString
                     in
                     [ view label identity valueString
-                    , view "Tokenized" (viewProblem lines location.row location.column) e
+                    , view "Tokenized" (viewProblem lines location.row location.column) [ e ]
                     ]
                         |> String.join "\n"
                         |> Expect.fail
@@ -88,9 +88,9 @@ parseResultToString toRope input result =
                                     |> List.map errorToString
                                     |> Result.Extra.partition
 
-                            message : String
-                            message =
-                                [ case expecting of
+                            expectingMessage : Maybe String
+                            expectingMessage =
+                                case expecting of
                                     [] ->
                                         Nothing
 
@@ -99,20 +99,21 @@ parseResultToString toRope input result =
 
                                     es ->
                                         Just ("Expecting one of " ++ String.join " or " es)
-                                , case problems of
-                                    [] ->
-                                        Nothing
 
-                                    [ p ] ->
-                                        Just ("Problem: " ++ p)
+                            problemsMessages : List String
+                            problemsMessages =
+                                List.map (\p -> "Problem: " ++ p) problems
 
-                                    ps ->
-                                        Just ("Problems: " ++ String.join " or " ps)
-                                ]
-                                    |> List.filterMap identity
-                                    |> String.join "\n"
+                            allMessages : List String
+                            allMessages =
+                                case expectingMessage of
+                                    Nothing ->
+                                        problemsMessages
+
+                                    Just msg ->
+                                        msg :: problemsMessages
                         in
-                        viewProblem lines row column message
+                        viewProblem lines row column allMessages
                     )
                 |> String.join "\n\n--- OR ---\n\n"
 
@@ -133,8 +134,8 @@ errorToString error =
             Err (Token.toString t)
 
 
-viewProblem : List String -> Int -> Int -> String -> String
-viewProblem lines row column message =
+viewProblem : List String -> Int -> Int -> List String -> String
+viewProblem lines row column messages =
     let
         pre : String
         pre =
@@ -158,16 +159,19 @@ viewProblem lines row column message =
                 |> List.take 2
                 |> String.join "\n"
 
-        addMarker : String -> String
-        addMarker problemLine =
-            String.repeat (column - 1) " " ++ "^-- " ++ problemLine
+        addMarker : Int -> String -> String
+        addMarker index problemLine =
+            if index == 0 then
+                String.repeat (column - 1) " " ++ "^-- " ++ problemLine
+
+            else
+                String.repeat (column + 3) " " ++ problemLine
     in
     pre
         ++ current
         ++ "\n"
-        ++ (message
-                |> String.split "\n"
-                |> List.map addMarker
+        ++ (messages
+                |> List.indexedMap addMarker
                 |> String.join "\n"
            )
         ++ "\n"
