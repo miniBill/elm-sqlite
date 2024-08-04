@@ -45,8 +45,17 @@ suite =
                             |> String.join "\n"
                             |> Expect.fail
 
-                Err e ->
-                    Expect.fail ("Failed to tokenize: " ++ e)
+                Err ( location, e ) ->
+                    let
+                        lines : List String
+                        lines =
+                            String.split "\n" statementString
+                    in
+                    [ view "Statement" identity statementString
+                    , view "Tokenized" (viewProblem lines location.row location.column) e
+                    ]
+                        |> String.join "\n"
+                        |> Expect.fail
 
 
 parseResultToString : String -> Result (List (Parser.DeadEnd Token)) Statement.Statement -> String
@@ -61,42 +70,47 @@ parseResultToString input result =
             e
                 |> List.map
                     (\{ row, column, problem } ->
-                        let
-                            pre : String
-                            pre =
-                                lines
-                                    |> List.drop (row - 3)
-                                    |> List.take (min 2 (row - 1))
-                                    |> List.map (\line -> line ++ "\n")
-                                    |> String.concat
-
-                            current : String
-                            current =
-                                lines
-                                    |> List.drop (row - 1)
-                                    |> List.take 1
-                                    |> String.join "\n"
-
-                            post : String
-                            post =
-                                lines
-                                    |> List.drop row
-                                    |> List.take 2
-                                    |> String.join "\n"
-                        in
-                        pre
-                            ++ current
-                            ++ "\n"
-                            ++ String.repeat (column - 1) " "
-                            ++ "^-- "
-                            ++ Debug.toString problem
-                            ++ "\n"
-                            ++ post
+                        viewProblem lines row column (Debug.toString problem)
                     )
                 |> String.join "\n\n--- OR ---\n\n"
 
         Ok s ->
             Statement.toString s
+
+
+viewProblem : List String -> Int -> Int -> String -> String
+viewProblem lines row column problem =
+    let
+        pre : String
+        pre =
+            lines
+                |> List.drop (row - 3)
+                |> List.take (min 2 (row - 1))
+                |> List.map (\line -> line ++ "\n")
+                |> String.concat
+
+        current : String
+        current =
+            lines
+                |> List.drop (row - 1)
+                |> List.take 1
+                |> String.join "\n"
+
+        post : String
+        post =
+            lines
+                |> List.drop row
+                |> List.take 2
+                |> String.join "\n"
+    in
+    pre
+        ++ current
+        ++ "\n"
+        ++ String.repeat (column - 1) " "
+        ++ "^-- "
+        ++ Debug.toString problem
+        ++ "\n"
+        ++ post
 
 
 tokenizedToString : List (Node Token) -> String

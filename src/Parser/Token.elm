@@ -162,6 +162,7 @@ type Token
     | Without
     | Ident String
     | Number Float
+    | String String
 
 
 fromString : String -> Maybe Token
@@ -1079,3 +1080,6 @@ toString input =
 
         Number f ->
             String.fromFloat f
+
+        String s ->
+            "'" ++ String.replace "'" "''" s ++ "'"
