@@ -21,7 +21,7 @@ suite =
     describe "toString >> parse === Ok"
         [ checkRoundtrip "Statement" statementFuzzer Statement.toRope Statement.parser
         , checkRoundtrip "Column definition" columnDefinitionFuzzer CreateTable.columnDefinitionToRope CreateTable.columnDefinitionParser
-        , Test.only (checkRoundtrip "Literal value" literalValueFuzzer Expr.literalValueToRope Expr.literalValueParser)
+        , checkRoundtrip "Literal value" literalValueFuzzer Expr.literalValueToRope Expr.literalValueParser
         ]
 
 
