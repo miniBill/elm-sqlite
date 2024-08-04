@@ -166,8 +166,13 @@ chompString position input inputUppercase acc =
 
 id : List Char -> List Char -> ( ( String, List Char ), ( String, List Char ) )
 id input inputUppercase =
-    ( List.Extra.span Char.isAlpha input
+    ( List.Extra.span isIdChar input
         |> Tuple.mapFirst String.fromList
-    , List.Extra.span Char.isAlpha inputUppercase
+    , List.Extra.span isIdChar inputUppercase
         |> Tuple.mapFirst String.fromList
     )
+
+
+isIdChar : Char -> Bool
+isIdChar c =
+    c == '_' || Char.isAlpha c || Char.isDigit c

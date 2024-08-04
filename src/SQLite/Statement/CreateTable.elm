@@ -1,4 +1,7 @@
-module SQLite.Statement.CreateTable exposing (ColumnConstraint, ColumnDefinition, ForeignKeyClause, GeneratedColumnStorage(..), IndexedColumn, InnerColumnConstraint(..), InnerTableConstraint(..), NameOrExpr(..), OnDeleteUpdate(..), Statement, TableConstraint, TableDefinition(..), TableOptions, parser, toRope)
+module SQLite.Statement.CreateTable exposing
+    ( ColumnConstraint, ColumnDefinition, ForeignKeyClause, GeneratedColumnStorage(..), IndexedColumn, InnerColumnConstraint(..), InnerTableConstraint(..), NameOrExpr(..), OnDeleteUpdate(..), Statement, TableConstraint, TableDefinition(..), TableOptions, parser, toRope
+    , columnDefinitionParser, columnDefinitionToRope
+    )
 
 {-|
 
@@ -176,7 +179,7 @@ innerColumnConstraintToRope constraint =
         ColumnForeignKey foreignKeyClause ->
             foreignKeyClauseToRope foreignKeyClause
 
-        GeneratedAs { always } expr storage ->
+        ColumnGeneratedAs { always } expr storage ->
             (if always then
                 Rope.singleton "GENERATED ALWAYS"
 
@@ -381,7 +384,7 @@ type InnerColumnConstraint
     | ColumnDefault Expr
     | ColumnCollate String
     | ColumnForeignKey ForeignKeyClause
-    | GeneratedAs { always : Bool } Expr (Maybe GeneratedColumnStorage)
+    | ColumnGeneratedAs { always : Bool } Expr (Maybe GeneratedColumnStorage)
 
 
 type GeneratedColumnStorage
@@ -561,7 +564,69 @@ columnDefinitionParser =
 
 columnConstraintParser : Parser Token ColumnConstraint
 columnConstraintParser =
-    Parser.problem "CreateTable.columnConstraintParser"
+    Parser.succeed ColumnConstraint
+        |> Parser.maybe_
+            (Parser.succeed identity
+                |> Parser.token_ Token.Constraint
+                |> Parser.keep ident
+            )
+        |> Parser.oneOf_
+            [ Parser.succeed ColumnPrimaryKey
+                |> Parser.token_ Token.Primary
+                |> Parser.token_ Token.Key
+                |> Parser.maybe_ ascDescParser
+                |> Parser.maybe_ conflictClauseParser
+                |> Parser.oneOf_
+                    [ Parser.succeed { autoIncrement = True }
+                        |> Parser.token_ Token.AutoIncrement
+                    , Parser.succeed { autoIncrement = False }
+                    ]
+            , Parser.succeed ColumnNotNull
+                |> Parser.token_ Token.Not
+                |> Parser.token_ Token.Null
+                |> Parser.maybe_ conflictClauseParser
+            , Parser.succeed ColumnUnique
+                |> Parser.token_ Token.Unique
+                |> Parser.maybe_ conflictClauseParser
+            , Parser.succeed ColumnCheck
+                |> Parser.token_ Token.Check
+                |> Parser.token_ Token.ParensOpen
+                |> Parser.keep Expr.parser
+                |> Parser.token_ Token.ParensClose
+            , Parser.succeed ColumnDefault
+                |> Parser.oneOf_
+                    [ Parser.succeed identity
+                        |> Parser.token_ Token.ParensOpen
+                        |> Parser.keep Expr.parser
+                        |> Parser.token_ Token.ParensClose
+                    , Parser.problem "CreateTable.columnConstraintParser"
+                    ]
+            , Parser.succeed ColumnCollate
+                |> Parser.token_ Token.Collate
+                |> Parser.keep ident
+            , Parser.succeed ColumnForeignKey
+                |> Parser.keep foreignKeyClauseParser
+            , Parser.succeed ColumnGeneratedAs
+                |> Parser.oneOf_
+                    [ Parser.succeed { always = True }
+                        |> Parser.token_ Token.Generated
+                        |> Parser.token_ Token.Always
+                    , Parser.succeed { always = False }
+                    ]
+                |> Parser.token_ Token.As
+                |> Parser.token_ Token.ParensOpen
+                |> Parser.keep Expr.parser
+                |> Parser.token_ Token.ParensClose
+                |> Parser.maybe_ generateColumnStorageParser
+            ]
+
+
+generateColumnStorageParser : Parser Token GeneratedColumnStorage
+generateColumnStorageParser =
+    Parser.oneOf
+        [ Parser.succeed Stored |> Parser.skip (identAsToken "STORED")
+        , Parser.succeed Virtual |> Parser.token_ Token.Virtual
+        ]
 
 
 tableConstraintParser : Parser Token TableConstraint
@@ -691,9 +756,9 @@ tableOptionsParser =
             Parser.oneOf
                 [ Parser.succeed { strict = False, withoutRowid = True }
                     |> Parser.token_ Token.Without
-                    |> Parser.token_ (Token.Ident "ROWID")
+                    |> Parser.skip (identAsToken "ROWID")
                 , Parser.succeed { strict = True, withoutRowid = False }
-                    |> Parser.token_ (Token.Ident "STRICT")
+                    |> Parser.skip (identAsToken "STRICT")
                 ]
 
         default : TableOptions
@@ -717,3 +782,20 @@ tableOptionsParser =
                 ]
         , Parser.succeed default
         ]
+
+
+identAsToken : String -> Parser Token ()
+identAsToken name =
+    Parser.custom
+        (\location stream ->
+            case stream of
+                (Node range (Token.Ident i)) :: tail ->
+                    if String.toUpper i == name then
+                        Parser.Good True () range.end tail
+
+                    else
+                        Parser.errorAt False location (Parser.ExpectingToken (Token.Ident name))
+
+                _ ->
+                    Parser.errorAt False location (Parser.ExpectingToken (Token.Ident name))
+        )

@@ -1,7 +1,7 @@
 module SQLite.Types exposing (AscDesc(..), ConflictClause(..), Type(..), ascDescToString, ropeToString, typeParser, typeToString)
 
-import Parser.OfTokens as Parser exposing (Parser)
-import Parser.Token exposing (Token)
+import Parser.OfTokens as Parser exposing (Node(..), Parser)
+import Parser.Token as Token exposing (Token)
 import Rope exposing (Rope)
 
 
@@ -39,6 +39,52 @@ typeToString tipe =
 
         Any ->
             "ANY"
+
+
+typeFromString : String -> Maybe Type
+typeFromString input =
+    case input of
+        "INTEGER" ->
+            Just Integer
+
+        "NUMERIC" ->
+            Just Numeric
+
+        "REAL" ->
+            Just Real
+
+        "TEXT" ->
+            Just Text
+
+        "BLOB" ->
+            Just Blob
+
+        "ANY" ->
+            Just Any
+
+        _ ->
+            Nothing
+
+
+typeParser : Parser Token Type
+typeParser =
+    Parser.custom
+        (\location stream ->
+            case stream of
+                (Node range Token.Integer) :: tail ->
+                    Parser.Good True Integer range.end tail
+
+                (Node range (Token.Ident i)) :: tail ->
+                    case typeFromString (String.toUpper i) of
+                        Just t ->
+                            Parser.Good True t range.end tail
+
+                        _ ->
+                            Parser.errorAt False location (Parser.Problem (i ++ " is not a valid type"))
+
+                _ ->
+                    Parser.errorAt False location (Parser.Problem "Expecting type")
+        )
 
 
 ascDescToString : AscDesc -> String
@@ -100,8 +146,3 @@ type ConflictClause
     | Fail
     | Ignore
     | Replace
-
-
-typeParser : Parser Token Type
-typeParser =
-    Parser.problem "Types.typeParser"

@@ -3,44 +3,54 @@ module ParserTest exposing (suite)
 import Expect
 import Fuzz exposing (Fuzzer)
 import List.Extra
-import Parser.OfTokens as Parser exposing (Node(..))
+import Parser.OfTokens as Parser exposing (Node(..), Parser)
 import Parser.Token as Token exposing (Token)
 import Parser.Tokenizer
+import Rope exposing (Rope)
 import SQLite.Expr
 import SQLite.Statement as Statement
 import SQLite.Statement.CreateTable as CreateTable
-import SQLite.Types
-import Test exposing (Test, fuzz)
+import SQLite.Types as Types
+import Test exposing (Test, describe, fuzz)
 
 
 suite : Test
 suite =
-    fuzz statementFuzzer "toString >> parse === Ok" <|
-        \statement ->
+    describe "toString >> parse === Ok"
+        [ checkRoundtrip "Statement" statementFuzzer Statement.toRope Statement.parser
+        , Test.only <| checkRoundtrip "Column definition" columnDefinitionFuzzer CreateTable.columnDefinitionToRope CreateTable.columnDefinitionParser
+        ]
+
+
+checkRoundtrip : String -> Fuzzer a -> (a -> Rope String) -> Parser Token a -> Test
+checkRoundtrip label fuzzer toRope parser =
+    fuzz fuzzer label <|
+        \value ->
             let
-                statementString : String
-                statementString =
-                    statement
-                        |> Statement.toString
+                valueString : String
+                valueString =
+                    value
+                        |> toRope
+                        |> Types.ropeToString
                         |> String.split "\n"
                         |> List.Extra.removeWhen (\line -> line |> String.trim |> String.isEmpty)
                         |> String.join "\n"
             in
-            case Parser.Tokenizer.tokenizer statementString of
+            case Parser.Tokenizer.tokenizer valueString of
                 Ok tokenized ->
                     let
-                        parsed : Result (List (Parser.DeadEnd Token)) Statement.Statement
+                        parsed : Result (List (Parser.DeadEnd Token)) a
                         parsed =
                             tokenized
-                                |> Parser.run (Statement.parser |> Parser.skip Parser.end)
+                                |> Parser.run (parser |> Parser.skip Parser.end)
                     in
-                    if parsed == Ok statement then
+                    if parsed == Ok value then
                         Expect.pass
 
                     else
-                        [ view "Statement" identity statementString
+                        [ view label identity valueString
                         , view "Tokenized" tokenizedToString tokenized
-                        , view "Parsed" (parseResultToString statementString) parsed
+                        , view "Parsed" (parseResultToString toRope valueString) parsed
                         ]
                             |> String.join "\n"
                             |> Expect.fail
@@ -49,17 +59,17 @@ suite =
                     let
                         lines : List String
                         lines =
-                            String.split "\n" statementString
+                            String.split "\n" valueString
                     in
-                    [ view "Statement" identity statementString
+                    [ view label identity valueString
                     , view "Tokenized" (viewProblem lines location.row location.column) e
                     ]
                         |> String.join "\n"
                         |> Expect.fail
 
 
-parseResultToString : String -> Result (List (Parser.DeadEnd Token)) Statement.Statement -> String
-parseResultToString input result =
+parseResultToString : (a -> Rope String) -> String -> Result (List (Parser.DeadEnd Token)) a -> String
+parseResultToString toRope input result =
     case result of
         Err e ->
             let
@@ -75,7 +85,7 @@ parseResultToString input result =
                 |> String.join "\n\n--- OR ---\n\n"
 
         Ok s ->
-            Statement.toString s
+            Types.ropeToString (toRope s)
 
 
 viewProblem : List String -> Int -> Int -> String -> String
@@ -116,7 +126,7 @@ viewProblem lines row column problem =
 tokenizedToString : List (Node Token) -> String
 tokenizedToString tokens =
     tokens
-        |> List.map (\(Node _ t) -> Token.toString t)
+        |> List.map (\(Node _ t) -> Token.toString t ++ " [" ++ Debug.toString t ++ "]")
         |> String.join " "
 
 
@@ -223,15 +233,15 @@ columnDefinitionFuzzer =
         (Fuzz.listOfLengthBetween 0 4 columnConstraintFuzzer)
 
 
-typeFuzzer : Fuzzer SQLite.Types.Type
+typeFuzzer : Fuzzer Types.Type
 typeFuzzer =
     Fuzz.oneOfValues
-        [ SQLite.Types.Integer
-        , SQLite.Types.Numeric
-        , SQLite.Types.Real
-        , SQLite.Types.Text
-        , SQLite.Types.Blob
-        , SQLite.Types.Any
+        [ Types.Integer
+        , Types.Numeric
+        , Types.Real
+        , Types.Text
+        , Types.Blob
+        , Types.Any
         ]
 
 
@@ -257,29 +267,29 @@ innerColumnConstraintFuzzer =
         , Fuzz.map CreateTable.ColumnCollate idFuzzer
         , Fuzz.map CreateTable.ColumnForeignKey foreignKeyClauseFuzzer
         , Fuzz.map3
-            CreateTable.GeneratedAs
+            CreateTable.ColumnGeneratedAs
             (Fuzz.map (\always -> { always = always }) Fuzz.bool)
             exprFuzzer
             (Fuzz.maybe generatedColumnStorageFuzzer)
         ]
 
 
-ascDescFuzzer : Fuzzer SQLite.Types.AscDesc
+ascDescFuzzer : Fuzzer Types.AscDesc
 ascDescFuzzer =
     Fuzz.oneOfValues
-        [ SQLite.Types.Asc
-        , SQLite.Types.Desc
+        [ Types.Asc
+        , Types.Desc
         ]
 
 
-conflictClauseFuzzer : Fuzzer SQLite.Types.ConflictClause
+conflictClauseFuzzer : Fuzzer Types.ConflictClause
 conflictClauseFuzzer =
     Fuzz.oneOfValues
-        [ SQLite.Types.Rollback
-        , SQLite.Types.Abort
-        , SQLite.Types.Fail
-        , SQLite.Types.Ignore
-        , SQLite.Types.Replace
+        [ Types.Rollback
+        , Types.Abort
+        , Types.Fail
+        , Types.Ignore
+        , Types.Replace
         ]
 
 

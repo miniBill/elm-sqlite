@@ -87,6 +87,32 @@ literalValueParser =
                 (Node range (Token.Number f)) :: tail ->
                     Good True (NumericLiteral f) range.end tail
 
+                (Node range (Token.String s)) :: tail ->
+                    Good True (StringLiteral s) range.end tail
+
+                (Node range Token.Null) :: tail ->
+                    Good True Null range.end tail
+
+                (Node range (Token.Ident i)) :: tail ->
+                    case String.toUpper i of
+                        "TRUE" ->
+                            Good True True_ range.end tail
+
+                        "FALSE" ->
+                            Good True False_ range.end tail
+
+                        _ ->
+                            Parser.errorAt False position (Parser.Problem "Expr.literalValueParser")
+
+                (Node range Token.Current_Date) :: tail ->
+                    Good True CurrentDate range.end tail
+
+                (Node range Token.Current_Time) :: tail ->
+                    Good True CurrentTime range.end tail
+
+                (Node range Token.Current_Timestamp) :: tail ->
+                    Good True CurrentTimestamp range.end tail
+
                 _ ->
                     Parser.errorAt False position (Parser.Problem "Expr.literalValueParser")
         )

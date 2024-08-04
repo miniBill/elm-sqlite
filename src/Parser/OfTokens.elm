@@ -1,11 +1,8 @@
-module Parser.OfTokens exposing
-    ( DeadEnd, Error(..), Location, Node(..), PStep(..), Parser, Trailing(..), custom, custom_, end, errorAt, keep, map, oneOf, oneOf_, problem, run, sequence_, skip, succeed, token, token_
-    , many, many_, maybe_
-    )
+module Parser.OfTokens exposing (DeadEnd, Error(..), Location, Node(..), PStep(..), Parser, Range, Trailing(..), custom, custom_, end, errorAt, keep, many, many_, map, maybe_, oneOf, oneOf_, problem, run, sequence_, skip, succeed, token, token_)
 
 {-|
 
-@docs DeadEnd, Error, Location, Node, PStep, Parser, Trailing, custom, custom_, end, errorAt, keep, map, oneOf, oneOf_, problem, run, sequence_, skip, succeed, token, token_
+@docs DeadEnd, Error, Location, Node, PStep, Parser, Range, Trailing, custom, custom_, end, errorAt, keep, many, many_, map, maybe_, oneOf, oneOf_, problem, run, sequence_, skip, succeed, token, token_
 
 -}
 
@@ -57,7 +54,6 @@ type Error token
     = Problem String
     | ExpectingEnd
     | ExpectingToken token
-    | ExpectingTableNameOrSchemaNameAndTableName
 
 
 custom : (Location -> List (Node token) -> PStep token a) -> Parser token a
@@ -222,7 +218,7 @@ sequence config =
                 go first acc position queue =
                     case queue of
                         [] ->
-                            errorAt True position (Problem "222" {- ExpectingToken config.end -})
+                            errorAt True position (Problem "225" {- ExpectingToken config.end -})
 
                         (Node range head) :: tail ->
                             if head == config.end && (first || config.trailing /= Mandatory) then
@@ -237,7 +233,7 @@ sequence config =
                                         go False (result :: acc) newPosition rest
 
                             else if head /= config.separator then
-                                errorAt True range.start (Problem "237" {- ExpectingToken config.separator -})
+                                errorAt True range.start (Problem "240" {- ExpectingToken config.separator -})
 
                             else if config.trailing == Forbidden then
                                 case inner position tail of
