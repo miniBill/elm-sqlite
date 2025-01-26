@@ -28,9 +28,9 @@ toRope : Statement -> Rope String
 toRope statement =
     Rope.empty
         |> Rope.append "CREATE"
-        |> Rope.prependTo (iif statement.temporary "TEMP")
+        |> Rope.Extra.appendIf statement.temporary "TEMP"
         |> Rope.append "TABLE"
-        |> Rope.prependTo (iif statement.ifNotExists "IF NOT EXISTS")
+        |> Rope.Extra.appendIf statement.ifNotExists "IF NOT EXISTS"
         |> Rope.prependTo
             (case statement.schemaName of
                 Nothing ->
@@ -47,13 +47,6 @@ toRope statement =
                 TableDefinitionColumns columnsDef ->
                     columnsDefToRope columnsDef
             )
-
-
-fromTokens : List (Rope String) -> Rope String
-fromTokens list =
-    list
-        |> Rope.fromList
-        |> Rope.concat
 
 
 iif : Bool -> String -> Rope String
@@ -75,14 +68,14 @@ maybeToString f val =
             Rope.singleton (f v)
 
 
-maybe : (a -> Rope b) -> Maybe a -> Rope b
-maybe f val =
-    case val of
-        Nothing ->
-            Rope.empty
 
-        Just v ->
-            f v
+-- maybe : (a -> Rope b) -> Maybe a -> Rope b
+-- maybe f val =
+--     case val of
+--         Nothing ->
+--             Rope.empty
+--         Just v ->
+--             f v
 
 
 type TableDefinition
@@ -108,7 +101,7 @@ columnsDefToRope def =
                 ++ List.map tableConstraintToRope def.constraints
              )
                 |> List.intersperse (Rope.singleton ",")
-                |> fromTokens
+                |> Rope.Extra.fromListOfRopes
             )
         |> Rope.append ")"
         |> Rope.prependTo (tableOptionsToRope def.options)
@@ -142,16 +135,16 @@ innerColumnConstraintToRope constraint =
         ColumnPrimaryKey ascDesc conflictClause { autoIncrement } ->
             Rope.singleton "PRIMARY KEY"
                 |> Rope.prependTo (maybeToString Types.ascDescToString ascDesc)
-                |> Rope.prependTo (maybe conflictClauseToRope conflictClause)
-                |> Rope.prependTo (iif autoIncrement "AUTOINCREMENT")
+                |> Rope.Extra.appendMaybe conflictClauseToRope conflictClause
+                |> Rope.Extra.appendIf autoIncrement "AUTOINCREMENT"
 
         ColumnNotNull conflictClause ->
             Rope.singleton "NOT NULL"
-                |> Rope.prependTo (maybe conflictClauseToRope conflictClause)
+                |> Rope.Extra.appendMaybe conflictClauseToRope conflictClause
 
         ColumnUnique conflictClause ->
             Rope.singleton "UNIQUE"
-                |> Rope.prependTo (maybe conflictClauseToRope conflictClause)
+                |> Rope.Extra.appendMaybe conflictClauseToRope conflictClause
 
         ColumnCheck expr ->
             Rope.singleton "CHECK"
@@ -187,7 +180,7 @@ innerColumnConstraintToRope constraint =
                 |> Rope.append "("
                 |> Rope.prependTo (Expr.toRope expr)
                 |> Rope.append ")"
-                |> appendMaybe storageToString storage
+                |> Rope.Extra.appendMaybe storageToString storage
 
 
 storageToString : GeneratedColumnStorage -> Rope String
@@ -203,23 +196,26 @@ storageToString storage =
 conflictClauseToRope : ConflictClause -> Rope String
 conflictClauseToRope clause =
     Rope.singleton "ON CONFLICT"
-        |> Rope.append
-            (case clause of
-                Rollback ->
-                    "ROLLBACK"
+        |> Rope.append (conflictClauseToString clause)
 
-                Abort ->
-                    "ABORT"
 
-                Fail ->
-                    "FAIL"
+conflictClauseToString : ConflictClause -> String
+conflictClauseToString clause =
+    case clause of
+        Rollback ->
+            "ROLLBACK"
 
-                Ignore ->
-                    "IGNORE"
+        Abort ->
+            "ABORT"
 
-                Replace ->
-                    "REPLACE"
-            )
+        Fail ->
+            "FAIL"
+
+        Ignore ->
+            "IGNORE"
+
+        Replace ->
+            "REPLACE"
 
 
 tableConstraintToRope : TableConstraint -> Rope String
@@ -245,10 +241,10 @@ innerTableConstraintToRope constraint =
                     (columns
                         |> List.map indexedColumnToRope
                         |> List.intersperse (Rope.singleton ",")
-                        |> fromTokens
+                        |> Rope.Extra.fromListOfRopes
                     )
                 |> Rope.append ")"
-                |> Rope.prependTo (maybe conflictClauseToRope conflictClause)
+                |> Rope.Extra.appendMaybe conflictClauseToRope conflictClause
 
         TableUnique columns conflictClause ->
             Rope.singleton "UNIQUE"
@@ -257,10 +253,10 @@ innerTableConstraintToRope constraint =
                     (columns
                         |> List.map indexedColumnToRope
                         |> List.intersperse (Rope.singleton ",")
-                        |> fromTokens
+                        |> Rope.Extra.fromListOfRopes
                     )
                 |> Rope.append ")"
-                |> Rope.prependTo (maybe conflictClauseToRope conflictClause)
+                |> Rope.Extra.appendMaybe conflictClauseToRope conflictClause
 
         TableCheck expr ->
             Rope.singleton "CHECK"
@@ -284,19 +280,19 @@ foreignKeyClauseToRope clause =
             else
                 appendColumnList clause.columnNames
            )
-        |> appendMaybe
+        |> Rope.Extra.appendMaybe
             (\onDelete ->
                 Rope.singleton "ON DELETE"
                     |> Rope.append (onDeleteUpdateToString onDelete)
             )
             clause.onDelete
-        |> appendMaybe
+        |> Rope.Extra.appendMaybe
             (\onUpdate ->
                 Rope.singleton "ON UPDATE"
                     |> Rope.append (onDeleteUpdateToString onUpdate)
             )
             clause.onUpdate
-        |> appendMaybe
+        |> Rope.Extra.appendMaybe
             (\name ->
                 Rope.singleton "MATCH"
                     |> Rope.append name
@@ -309,12 +305,6 @@ foreignKeyClauseToRope clause =
                 Just ever ->
                     never ever
            )
-
-
-appendMaybe : (a -> Rope b) -> Maybe a -> Rope b -> Rope b
-appendMaybe f tail head =
-    head
-        |> Rope.prependTo (maybe f tail)
 
 
 appendColumnList : List String -> Rope String -> Rope String
@@ -356,7 +346,7 @@ tableOptionsToRope options =
     [ iif options.strict "STRICT"
     , iif options.withoutRowid "WITHOUT ROWID"
     ]
-        |> fromTokens
+        |> Rope.Extra.fromListOfRopes
         |> Rope.Extra.intersperse ","
 
 
