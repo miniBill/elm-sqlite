@@ -10,7 +10,6 @@ module SQLite.Statement.Select exposing
 
 -}
 
-import List.Extra
 import List.NonEmpty
 import Parser.OfTokens as Parser exposing (Parser)
 import Parser.Token as Token exposing (Token)
