@@ -41,7 +41,7 @@ type SelectTree
     = Leaf SelectCore
     | Union SelectTree SelectTree
     | UnionAll SelectTree SelectTree
-    | Insersect SelectTree SelectTree
+    | Intersect SelectTree SelectTree
     | Except SelectTree SelectTree
 
 
@@ -162,9 +162,45 @@ commonTableExpressionParser =
     Parser.problem "Select.commonTableExpressionParser"
 
 
-treeParser : Parser token SelectTree
+treeParser : Parser Token SelectTree
 treeParser =
-    Parser.problem "Select.treeParser"
+    let
+        leafParser : Parser Token SelectTree
+        leafParser =
+            Parser.map Leaf selectCoreParser
+    in
+    Parser.succeed (List.foldl identity)
+        |> Parser.keep leafParser
+        |> Parser.many_
+            (Parser.succeed (\op r l -> op l r)
+                |> Parser.keep treeOperatorParser
+                |> Parser.keep leafParser
+            )
+
+
+treeOperatorParser : Parser Token (SelectTree -> SelectTree -> SelectTree)
+treeOperatorParser =
+    Parser.oneOf
+        [ Parser.succeed
+            (\all ->
+                if all == Nothing then
+                    Union
+
+                else
+                    UnionAll
+            )
+            |> Parser.token_ Token.Union
+            |> Parser.maybe_ (Parser.token Token.All)
+        , Parser.succeed Intersect
+            |> Parser.token_ Token.Intersect
+        , Parser.succeed Except
+            |> Parser.token_ Token.Except
+        ]
+
+
+selectCoreParser : Parser token SelectCore
+selectCoreParser =
+    Parser.problem "Select.selectCoreParser"
 
 
 orderByParser : Parser token (List.NonEmpty.NonEmpty OrderingTerm)
