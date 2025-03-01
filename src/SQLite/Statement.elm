@@ -1,11 +1,8 @@
-module SQLite.Statement exposing
-    ( Explain(..), InnerStatement(..), Statement, parser, toString
-    , toRope
-    )
+module SQLite.Statement exposing (Explain(..), InnerStatement(..), Statement, parser, toString, toRope)
 
 {-|
 
-@docs Explain, InnerStatement, Statement, parser, toString
+@docs Explain, InnerStatement, Statement, parser, toString, toRope
 
 -}
 

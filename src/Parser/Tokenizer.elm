@@ -17,19 +17,16 @@ tokenizer input =
 tokenizerHelper : Location -> List Char -> List Char -> List (Node Token) -> Result ( Location, String ) (List (Node Token))
 tokenizerHelper position input inputUppercase acc =
     let
-        build : Token -> ( Location, Node Token )
-        build t =
+        simple : Token -> List Char -> Result ( Location, String ) (List (Node Token))
+        simple token tail =
             let
                 next : Location
                 next =
                     { position | column = position.column + 1 }
-            in
-            ( next, Node { start = position, end = next } t )
 
-        simple token tail =
-            let
-                ( next, node ) =
-                    build token
+                node : Node Token
+                node =
+                    Node { start = position, end = next } token
             in
             tokenizerHelper next (List.drop 1 input) tail (node :: acc)
     in
