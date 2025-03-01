@@ -1,4 +1,7 @@
-module Parser.OfTokens exposing (DeadEnd, Error(..), Location, Node(..), PStep(..), Parser, Range, Trailing(..), custom, custom_, end, errorAt, keep, many, many_, map, maybe_, oneOf, oneOf_, problem, run, sequence, sequence_, skip, succeed, token, token_)
+module Parser.OfTokens exposing
+    ( DeadEnd, Error(..), Location, Node(..), PStep(..), Parser, Range, Trailing(..), custom, custom_, end, errorAt, keep, many, many_, map, maybe_, oneOf, oneOf_, problem, run, sequence, sequence_, skip, succeed, token, token_
+    , manyWithSeparator
+    )
 
 {-|
 
@@ -6,6 +9,7 @@ module Parser.OfTokens exposing (DeadEnd, Error(..), Location, Node(..), PStep(.
 
 -}
 
+import List.NonEmpty
 import Rope exposing (Rope)
 
 
@@ -362,3 +366,14 @@ manyHelper (Parser inner) acc position stream =
 
         Good _ el newPosition newStream ->
             manyHelper (Parser inner) (el :: acc) newPosition newStream
+
+
+manyWithSeparator : token -> Parser token a -> Parser token (List.NonEmpty.NonEmpty a)
+manyWithSeparator separator parser =
+    succeed Tuple.pair
+        |> keep parser
+        |> many_
+            (succeed identity
+                |> skip (token separator)
+                |> keep parser
+            )

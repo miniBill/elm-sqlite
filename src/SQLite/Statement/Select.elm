@@ -13,20 +13,23 @@ module SQLite.Statement.Select exposing
 import List.Extra
 import List.NonEmpty
 import Parser.OfTokens as Parser exposing (Parser)
+import Parser.Token as Token exposing (Token)
 import Rope exposing (Rope)
 import Rope.Extra
 import SQLite.Expr exposing (Expr)
 
 
 type alias Statement =
-    { commonTableExpression :
-        Maybe
-            { recursive : Bool
-            , commonTableExpressions : List.NonEmpty.NonEmpty CommonTableExpression
-            }
+    { commonTableClause : Maybe CommonTableClause
     , selectTree : SelectTree
     , orderBy : List.NonEmpty.NonEmpty OrderingTerm
     , limit : Maybe Limit
+    }
+
+
+type alias CommonTableClause =
+    { recursive : Bool
+    , commonTableExpressions : List.NonEmpty.NonEmpty CommonTableExpression
     }
 
 
@@ -121,7 +124,7 @@ toRope statement =
                         )
                     |> Rope.append ")"
             )
-            statement.commonTableExpression
+            statement.commonTableClause
 
 
 commonTableExpressionToRope : CommonTableExpression -> Rope String
@@ -129,16 +132,32 @@ commonTableExpressionToRope cte =
     never cte
 
 
-parser : Parser token Statement
+parser : Parser Token Statement
 parser =
     Parser.succeed Statement
-        |> Parser.keep commonTableExpressionParser
+        |> Parser.oneOf_
+            [ Parser.map Just commonTableClauseParser
+            , Parser.succeed Nothing
+            ]
         |> Parser.keep treeParser
         |> Parser.keep orderByParser
         |> Parser.keep limitParser
 
 
-commonTableExpressionParser : Parser token (Maybe { recursive : Bool, commonTableExpressions : List.NonEmpty.NonEmpty CommonTableExpression })
+commonTableClauseParser : Parser Token CommonTableClause
+commonTableClauseParser =
+    Parser.succeed
+        (\recursive commonTableExpressions ->
+            { recursive = recursive /= Nothing
+            , commonTableExpressions = commonTableExpressions
+            }
+        )
+        |> Parser.skip (Parser.token Token.With)
+        |> Parser.maybe_ (Parser.token Token.Recursive)
+        |> Parser.keep (Parser.manyWithSeparator Token.Comma commonTableExpressionParser)
+
+
+commonTableExpressionParser : Parser Token CommonTableExpression
 commonTableExpressionParser =
     Parser.problem "Select.commonTableExpressionParser"
 
