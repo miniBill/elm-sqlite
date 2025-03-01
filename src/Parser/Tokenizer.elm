@@ -25,45 +25,35 @@ tokenizerHelper position input inputUppercase acc =
                     { position | column = position.column + 1 }
             in
             ( next, Node { start = position, end = next } t )
+
+        simple token tail =
+            let
+                ( next, node ) =
+                    build token
+            in
+            tokenizerHelper next (List.drop 1 input) tail (node :: acc)
     in
     case inputUppercase of
         [] ->
             Ok (List.reverse acc)
 
         '(' :: tail ->
-            let
-                ( next, token ) =
-                    build Token.ParensOpen
-            in
-            tokenizerHelper next (List.drop 1 input) tail (token :: acc)
+            simple Token.ParensOpen tail
 
         ')' :: tail ->
-            let
-                ( next, token ) =
-                    build Token.ParensClose
-            in
-            tokenizerHelper next (List.drop 1 input) tail (token :: acc)
+            simple Token.ParensClose tail
 
         ',' :: tail ->
-            let
-                ( next, token ) =
-                    build Token.Comma
-            in
-            tokenizerHelper next (List.drop 1 input) tail (token :: acc)
+            simple Token.Comma tail
 
         ';' :: tail ->
-            let
-                ( next, token ) =
-                    build Token.Semicolon
-            in
-            tokenizerHelper next (List.drop 1 input) tail (token :: acc)
+            simple Token.Semicolon tail
 
         '.' :: tail ->
-            let
-                ( next, token ) =
-                    build Token.Dot
-            in
-            tokenizerHelper next (List.drop 1 input) tail (token :: acc)
+            simple Token.Dot tail
+
+        '*' :: tail ->
+            simple Token.Star tail
 
         ' ' :: tail ->
             tokenizerHelper { position | column = position.column + 1 } (List.drop 1 input) tail acc

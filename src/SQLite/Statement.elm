@@ -77,6 +77,7 @@ parser =
                     Debug.todo
              in
              [ Parser.map CreateTable CreateTable.parser
+             , Parser.map Select Select.parser
              ]
             )
 

@@ -10,6 +10,7 @@ module SQLite.Statement.Select exposing
 
 -}
 
+import List.Extra
 import List.NonEmpty
 import Parser.OfTokens as Parser exposing (Parser)
 import Rope exposing (Rope)
@@ -41,7 +42,48 @@ type SelectTree
     | Except SelectTree SelectTree
 
 
-type alias SelectCore =
+type SelectCore
+    = Select
+        { modifier : Maybe Modifier
+        , columns : List.NonEmpty.NonEmpty ResultColumn
+        , from : Maybe From
+        , where_ : Maybe Expr
+        , groupBy : Maybe (List.NonEmpty.NonEmpty Expr)
+        , having : Maybe Expr
+        , window : Maybe (List.NonEmpty.NonEmpty Window)
+        }
+    | Values (List.NonEmpty.NonEmpty Expr)
+
+
+type Modifier
+    = Distinct
+    | All
+
+
+type alias ResultColumn =
+    Never
+
+
+type From
+    = FromTableOrSubquery TableOrSubquery
+    | FromJoinClause JoinClause
+
+
+type alias TableOrSubquery =
+    Never
+
+
+type alias JoinClause =
+    Never
+
+
+type alias Window =
+    { windowName : WindowName
+    , windowDefinition : Never
+    }
+
+
+type alias WindowName =
     Never
 
 
@@ -89,4 +131,28 @@ commonTableExpressionToRope cte =
 
 parser : Parser token Statement
 parser =
-    Parser.problem "Statement.Select.parser"
+    Parser.succeed Statement
+        |> Parser.keep commonTableExpressionParser
+        |> Parser.keep treeParser
+        |> Parser.keep orderByParser
+        |> Parser.keep limitParser
+
+
+commonTableExpressionParser : Parser token (Maybe { recursive : Bool, commonTableExpressions : List.NonEmpty.NonEmpty CommonTableExpression })
+commonTableExpressionParser =
+    Parser.problem "Select.commonTableExpressionParser"
+
+
+treeParser : Parser token SelectTree
+treeParser =
+    Parser.problem "Select.treeParser"
+
+
+orderByParser : Parser token (List.NonEmpty.NonEmpty OrderingTerm)
+orderByParser =
+    Parser.problem "Select.orderByParser"
+
+
+limitParser : Parser token (Maybe Limit)
+limitParser =
+    Parser.problem "Select.limitParser"

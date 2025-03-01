@@ -159,6 +159,7 @@ type Token
     | Comma
     | Semicolon
     | Dot
+    | Star
     | ParensClose
     | ParensOpen
     | Ident String
@@ -1075,6 +1076,9 @@ toString input =
 
         Dot ->
             "."
+
+        Star ->
+            "*"
 
         Semicolon ->
             ";"
