@@ -1,6 +1,6 @@
 module Parser.OfTokens exposing
     ( DeadEnd, Error(..), Location, Node(..), PStep(..), Parser, Range, Trailing(..), custom, custom_, end, errorAt, keep, many, many_, map, maybe_, oneOf, oneOf_, problem, run, sequence, sequence_, skip, succeed, token, token_
-    , manyWithSeparator
+    , manyWithSeparator, manyWithSeparator_
     )
 
 {-|
@@ -377,3 +377,12 @@ manyWithSeparator separator parser =
                 |> skip (token separator)
                 |> keep parser
             )
+
+
+manyWithSeparator_ :
+    token
+    -> Parser token a
+    -> Parser token (List.NonEmpty.NonEmpty a -> b)
+    -> Parser token b
+manyWithSeparator_ separator parser main =
+    main |> keep (manyWithSeparator separator parser)

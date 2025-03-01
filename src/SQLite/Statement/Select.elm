@@ -16,7 +16,7 @@ import Parser.OfTokens as Parser exposing (Parser)
 import Parser.Token as Token exposing (Token)
 import Rope exposing (Rope)
 import Rope.Extra
-import SQLite.Expr exposing (Expr)
+import SQLite.Expr as Expr exposing (Expr)
 
 
 type alias Statement =
@@ -55,7 +55,7 @@ type SelectCore
         , having : Maybe Expr
         , window : Maybe (List.NonEmpty.NonEmpty Window)
         }
-    | Values (List.NonEmpty.NonEmpty Expr)
+    | Values (List.NonEmpty.NonEmpty (List.NonEmpty.NonEmpty Expr))
 
 
 type Modifier
@@ -154,7 +154,7 @@ commonTableClauseParser =
         )
         |> Parser.skip (Parser.token Token.With)
         |> Parser.maybe_ (Parser.token Token.Recursive)
-        |> Parser.keep (Parser.manyWithSeparator Token.Comma commonTableExpressionParser)
+        |> Parser.manyWithSeparator_ Token.Comma commonTableExpressionParser
 
 
 commonTableExpressionParser : Parser Token CommonTableExpression
@@ -198,9 +198,20 @@ treeOperatorParser =
         ]
 
 
-selectCoreParser : Parser token SelectCore
+selectCoreParser : Parser Token SelectCore
 selectCoreParser =
-    Parser.problem "Select.selectCoreParser"
+    Parser.oneOf
+        [ Parser.succeed Select
+            |> Parser.token_ Token.Select
+            |> Parser.keep (Parser.problem "Select.selectCoreParser#SELECT")
+        , Parser.succeed Values
+            |> Parser.manyWithSeparator_ Token.Comma
+                (Parser.succeed identity
+                    |> Parser.token_ Token.ParensOpen
+                    |> Parser.manyWithSeparator_ Token.Comma Expr.parser
+                    |> Parser.token_ Token.ParensClose
+                )
+        ]
 
 
 orderByParser : Parser token (List.NonEmpty.NonEmpty OrderingTerm)
