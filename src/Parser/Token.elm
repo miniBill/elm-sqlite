@@ -159,7 +159,11 @@ type Token
     | Comma
     | Semicolon
     | Dot
+    | Plus
+    | Minus
     | Star
+    | LessThan
+    | LessThanOrEquals
     | ParensClose
     | ParensOpen
     | Ident String
@@ -1077,8 +1081,20 @@ toString input =
         Dot ->
             "."
 
+        Plus ->
+            "+"
+
+        Minus ->
+            "-"
+
         Star ->
             "*"
+
+        LessThan ->
+            "<"
+
+        LessThanOrEquals ->
+            "<="
 
         Semicolon ->
             ";"

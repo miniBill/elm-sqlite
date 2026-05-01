@@ -1,15 +1,15 @@
 module Parser.OfTokens exposing
-    ( DeadEnd, Error(..), Location, Node(..), PStep(..), Parser, Range, Trailing(..), custom, custom_, end, errorAt, keep, many, many_, map, maybe_, oneOf, oneOf_, problem, run, sequence, sequence_, skip, succeed, token, token_
-    , manyWithSeparator, manyWithSeparator_
+    ( DeadEnd, Error(..), Location, Node(..), PStep(..), Parser, Range, Trailing(..), custom, custom_, end, errorAt, keep, many, many_, map, maybe, maybe_, oneOf, oneOf_, problem, run, sequence, sequence_, skip, succeed, token, token_, manyWithSeparator, manyWithSeparator_
+    , backtrackable, backtrackable_, lazy
     )
 
 {-|
 
-@docs DeadEnd, Error, Location, Node, PStep, Parser, Range, Trailing, custom, custom_, end, errorAt, keep, many, many_, map, maybe_, oneOf, oneOf_, problem, run, sequence, sequence_, skip, succeed, token, token_
+@docs DeadEnd, Error, Location, Node, PStep, Parser, Range, Trailing, custom, custom_, end, errorAt, keep, many, many_, map, maybe, maybe_, oneOf, oneOf_, problem, run, sequence, sequence_, skip, succeed, token, token_, manyWithSeparator, manyWithSeparator_
 
 -}
 
-import List.NonEmpty
+import List.NonEmpty exposing (NonEmpty)
 import Rope exposing (Rope)
 
 
@@ -368,7 +368,7 @@ manyHelper (Parser inner) acc position stream =
             manyHelper (Parser inner) (el :: acc) newPosition newStream
 
 
-manyWithSeparator : token -> Parser token a -> Parser token (List.NonEmpty.NonEmpty a)
+manyWithSeparator : token -> Parser token a -> Parser token (NonEmpty a)
 manyWithSeparator separator parser =
     succeed Tuple.pair
         |> keep parser
@@ -382,7 +382,37 @@ manyWithSeparator separator parser =
 manyWithSeparator_ :
     token
     -> Parser token a
-    -> Parser token (List.NonEmpty.NonEmpty a -> b)
+    -> Parser token (NonEmpty a -> b)
     -> Parser token b
 manyWithSeparator_ separator parser main =
     main |> keep (manyWithSeparator separator parser)
+
+
+backtrackable_ : Parser token a -> Parser token (a -> b) -> Parser token b
+backtrackable_ p other =
+    keep (backtrackable p) other
+
+
+backtrackable : Parser token a -> Parser token a
+backtrackable (Parser p) =
+    Parser
+        (\position stream ->
+            case p position stream of
+                Good _ v l t ->
+                    Good False v l t
+
+                Bad _ e ->
+                    Bad False e
+        )
+
+
+lazy : (() -> Parser token v) -> Parser token v
+lazy f =
+    Parser
+        (\position stream ->
+            let
+                (Parser p) =
+                    f ()
+            in
+            p position stream
+        )

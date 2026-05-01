@@ -49,8 +49,20 @@ tokenizerHelper position input inputUppercase acc =
         '.' :: tail ->
             simple Token.Dot tail
 
+        '+' :: tail ->
+            simple Token.Plus tail
+
+        '-' :: tail ->
+            simple Token.Minus tail
+
         '*' :: tail ->
             simple Token.Star tail
+
+        '<' :: '=' :: tail ->
+            simple Token.LessThanOrEquals tail
+
+        '<' :: tail ->
+            simple Token.LessThan tail
 
         ' ' :: tail ->
             tokenizerHelper { position | column = position.column + 1 } (List.drop 1 input) tail acc

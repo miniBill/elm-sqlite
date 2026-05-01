@@ -1,6 +1,6 @@
 module SQLite.Expr exposing
     ( Expr(..), LiteralValue(..), literalValueToString, literalValueParser, parser, toRope
-    , literalValueToRope
+    , add, call, columnName, int, literalValueToRope, lt
     )
 
 {-|
@@ -11,14 +11,54 @@ module SQLite.Expr exposing
 
 import Bytes exposing (Bytes)
 import Hex.Convert
+import List.NonEmpty exposing (NonEmpty)
 import Parser.OfTokens as Parser exposing (Node(..), PStep(..), Parser)
 import Parser.Token as Token exposing (Token)
 import Rope exposing (Rope)
+import Rope.Extra
+import SQLite.Types exposing (AscDesc, ColumnName, FirstLast, SchemaName, TableName)
 
 
 type Expr
     = LiteralValue LiteralValue
+    | ColumnName (Maybe SchemaName) (Maybe TableName) ColumnName
+    | Call FunctionName FunctionArguments (Maybe FilterClause) (Maybe OverClause)
+    | Binary Expr BinaryOperator Expr
     | OTHERS Never
+
+
+type alias FunctionName =
+    String
+
+
+type FunctionArguments
+    = FunctionArgumentsList
+        { distinct : Bool
+        , expressions : NonEmpty Expr
+        , orderBy : Maybe (NonEmpty OrderingTerm)
+        }
+    | FunctionArgumentsStar
+    | FunctionArgumentsEmpty
+
+
+type alias OrderingTerm =
+    { expr : Expr
+    , collate : Maybe CollationName
+    , order : AscDesc
+    , nulls : Maybe FirstLast
+    }
+
+
+type alias CollationName =
+    String
+
+
+type alias FilterClause =
+    Never
+
+
+type alias OverClause =
+    Never
 
 
 type LiteralValue
@@ -33,14 +73,65 @@ type LiteralValue
     | CurrentTimestamp
 
 
+type BinaryOperator
+    = Plus
+    | Lt
+
+
 toRope : Expr -> Rope String
 toRope expr =
     case expr of
         LiteralValue literal ->
             Rope.singleton (literalValueToString literal)
 
+        ColumnName schemaName tableName n ->
+            Rope.empty
+                |> Rope.Extra.appendMaybe
+                    (\s -> Rope.singleton (s ++ "."))
+                    schemaName
+                |> Rope.Extra.appendMaybe
+                    (\t -> Rope.singleton (t ++ "."))
+                    tableName
+                |> Rope.append n
+
+        Call name args filter over ->
+            Rope.singleton name
+                |> Rope.prependTo (functionArgumentsToRope args)
+                |> Rope.Extra.appendMaybe never filter
+                |> Rope.Extra.appendMaybe never over
+
+        Binary l op r ->
+            Rope.singleton "("
+                |> Rope.prependTo (toRope l)
+                |> Rope.append (" " ++ binaryOperatorToString op ++ " ")
+                |> Rope.prependTo (toRope r)
+                |> Rope.append ")"
+
         OTHERS ever ->
             never ever
+
+
+binaryOperatorToString : BinaryOperator -> String
+binaryOperatorToString op =
+    case op of
+        Plus ->
+            "+"
+
+        Lt ->
+            "<"
+
+
+functionArgumentsToRope : FunctionArguments -> Rope FunctionName
+functionArgumentsToRope args =
+    case args of
+        FunctionArgumentsStar ->
+            Rope.singleton "*"
+
+        FunctionArgumentsList _ ->
+            Debug.todo "branch 'FunctionArgumentsList _' not implemented"
+
+        FunctionArgumentsEmpty ->
+            Debug.todo "branch 'FunctionArgumentsEmpty' not implemented"
 
 
 literalValueToString : LiteralValue -> String
@@ -124,3 +215,37 @@ literalValueParser =
 literalValueToRope : LiteralValue -> Rope String
 literalValueToRope literalValue =
     Rope.singleton (literalValueToString literalValue)
+
+
+call : FunctionName -> List Expr -> Expr
+call name args =
+    Call name
+        (case args of
+            [] ->
+                FunctionArgumentsEmpty
+
+            h :: t ->
+                FunctionArgumentsList { distinct = False, expressions = ( h, t ), orderBy = Nothing }
+        )
+        Nothing
+        Nothing
+
+
+int : Int -> Expr
+int i =
+    LiteralValue (NumericLiteral (toFloat i))
+
+
+columnName : String -> Expr
+columnName v =
+    ColumnName Nothing Nothing v
+
+
+add : Expr -> Expr -> Expr
+add l r =
+    Binary l Plus r
+
+
+lt : Expr -> Expr -> Expr
+lt l r =
+    Binary l Lt r

@@ -1,4 +1,4 @@
-module SQLite.Types exposing (AscDesc(..), ConflictClause(..), Type(..), ascDescToString, ropeToString, typeParser, typeToString)
+module SQLite.Types exposing (AscDesc(..), ColumnName, ConflictClause(..), FirstLast(..), SchemaName, TableName, Type(..), ascDescToString, ropeToString, typeParser, typeToString)
 
 import Parser.OfTokens as Parser exposing (Node(..), Parser)
 import Parser.Token as Token exposing (Token)
@@ -12,11 +12,6 @@ type Type
     | Text
     | Blob
     | Any
-
-
-type AscDesc
-    = Asc
-    | Desc
 
 
 typeToString : Type -> String
@@ -87,6 +82,11 @@ typeParser =
         )
 
 
+type AscDesc
+    = Asc
+    | Desc
+
+
 ascDescToString : AscDesc -> String
 ascDescToString ascDesc =
     case ascDesc of
@@ -95,6 +95,23 @@ ascDescToString ascDesc =
 
         Desc ->
             "DESC"
+
+
+type FirstLast
+    = First
+    | Last
+
+
+type alias SchemaName =
+    String
+
+
+type alias TableName =
+    String
+
+
+type alias ColumnName =
+    String
 
 
 ropeToString : Rope String -> String

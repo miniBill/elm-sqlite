@@ -6,4 +6,4 @@ import Test exposing (Test)
 
 selectStar : Test
 selectStar =
-    ParserTest.justParseStatement """SELECT * FROM table"""
+    ParserTest.justParseStatement """SELECT * FROM t"""

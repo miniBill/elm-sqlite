@@ -1,4 +1,7 @@
-module SQLite.Statement exposing (Explain(..), InnerStatement(..), Statement, parser, toString, toRope)
+module SQLite.Statement exposing
+    ( Explain(..), InnerStatement(..), Statement, parser, toString, toRope
+    , select
+    )
 
 {-|
 
@@ -175,8 +178,8 @@ toRopeInner statement =
         Savepoint ever ->
             never ever
 
-        Select select ->
-            Select.toRope select
+        Select s ->
+            Select.toRope s
 
         Update ever ->
             never ever
@@ -186,3 +189,10 @@ toRopeInner statement =
 
         Vacuum ever ->
             never ever
+
+
+select : Select.Statement -> Statement
+select s =
+    { explain = Nothing
+    , statement = Select s
+    }

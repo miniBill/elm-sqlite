@@ -1,29 +1,35 @@
-module ParserTest exposing (justParseStatement)
+module ParserTest exposing (justParseStatement, testParse)
 
 import Expect
 import Parser.OfTokens as Parser exposing (Parser)
 import Parser.Token exposing (Token)
 import Parser.Tokenizer
-import Rope
+import Rope exposing (Rope)
 import SQLite.Statement as Statement
+import String.Multiline
 import Test exposing (Test, test)
 import TestCommon exposing (testOutputRow, tokenizedToString)
 
 
 justParseStatement : String -> Test
 justParseStatement input =
-    testParse
-        (input |> String.split "\n" |> List.take 1 |> String.concat)
-        Statement.parser
-        Statement.toRope
-        input
-        Nothing
+    let
+        clean =
+            String.Multiline.here input
+
+        firstLine =
+            clean
+                |> String.split "\n"
+                |> List.take 1
+                |> String.concat
+    in
+    testParse firstLine Statement.parser Statement.toRope clean Nothing
 
 
 testParse :
     String
     -> Parser Token a
-    -> (a -> Rope.Rope String)
+    -> (a -> Rope String)
     -> String
     -> Maybe a
     -> Test
