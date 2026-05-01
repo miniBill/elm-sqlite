@@ -19,11 +19,5 @@ ident =
                     Good True i pos.end tail
 
                 _ ->
-                    Bad False
-                        (Rope.singleton
-                            { row = position.row
-                            , column = position.column
-                            , problem = Parser.ExpectingToken (Token.Ident "<an identifier>")
-                            }
-                        )
+                    Parser.errorAt False position (Parser.ExpectingToken (Token.Ident "<an identifier>"))
         )

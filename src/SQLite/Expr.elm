@@ -169,7 +169,21 @@ parser : Parser Token Expr
 parser =
     Parser.oneOf
         [ Parser.map LiteralValue literalValueParser
-        , Parser.problem "Expr.parser"
+        , Parser.custom
+            (\position stream ->
+                case stream of
+                    (Node _ (Token.Ident schema)) :: (Node _ Token.Dot) :: (Node _ (Token.Ident table)) :: (Node _ Token.Dot) :: (Node columnRange (Token.Ident column)) :: tail ->
+                        Parser.Good True (ColumnName (Just schema) (Just table) column) columnRange.end tail
+
+                    (Node _ (Token.Ident table)) :: (Node _ Token.Dot) :: (Node columnRange (Token.Ident column)) :: tail ->
+                        Parser.Good True (ColumnName Nothing (Just table) column) columnRange.end tail
+
+                    (Node columnRange (Token.Ident column)) :: tail ->
+                        Parser.Good True (ColumnName Nothing Nothing column) columnRange.end tail
+
+                    _ ->
+                        Parser.errorAt False position (Parser.Problem "Expecting (optionally qualified) column name")
+            )
         ]
 
 
