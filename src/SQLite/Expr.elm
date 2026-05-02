@@ -167,6 +167,21 @@ literalValueToString literal =
 
 parser : Parser Token Expr
 parser =
+    Parser.succeed (\l f -> f l)
+        |> Parser.keep leafParser
+        |> Parser.oneOf_
+            [ Parser.succeed (\r l -> add l r)
+                |> Parser.token_ Token.Plus
+                |> Parser.keep leafParser
+            , Parser.succeed (\r l -> lt l r)
+                |> Parser.token_ Token.LessThan
+                |> Parser.keep leafParser
+            , Parser.succeed identity
+            ]
+
+
+leafParser : Parser Token Expr
+leafParser =
     Parser.oneOf
         [ Parser.map LiteralValue literalValueParser
         , Parser.custom
@@ -184,6 +199,7 @@ parser =
                     _ ->
                         Parser.errorAt False position (Parser.Problem "Expecting (optionally qualified) column name")
             )
+        , Parser.problem "Expr.parser"
         ]
 
 
