@@ -42,9 +42,11 @@ module SQLite.Statement.Select exposing
 -}
 
 import List.NonEmpty as NonEmpty exposing (NonEmpty)
+import Maybe.Extra
 import Parser.Extra as Parser
 import Parser.OfTokens as Parser exposing (Node(..), Parser, token_)
 import Parser.Token as Token exposing (Token)
+import Result.Extra
 import Rope exposing (Rope)
 import Rope.Extra
 import SQLite.Expr as Expr exposing (Expr)
@@ -86,14 +88,17 @@ type CommonTableExpression
         }
 
 
-commonTableExpression : TableName -> List ColumnName -> Statement -> CommonTableExpression
-commonTableExpression tableName columns s =
-    CommonTableExpression
-        { tableName = tableName
-        , columns = NonEmpty.fromList columns
-        , materialized = Nothing
-        , select = s
-        }
+commonTableExpression : TableName -> List ColumnName -> Result String Statement -> Result String CommonTableExpression
+commonTableExpression tableName columns =
+    Result.map
+        (\s ->
+            CommonTableExpression
+                { tableName = tableName
+                , columns = NonEmpty.fromList columns
+                , materialized = Nothing
+                , select = s
+                }
+        )
 
 
 type SelectTree
@@ -516,117 +521,160 @@ with exprs builder =
 
 
 withRecursive :
-    NonEmpty CommonTableExpression
-    -> StatementBuilder Never order limit
-    -> StatementBuilder CommonTableClause order limit
-withRecursive exprs builder =
-    { commonTableClause =
-        Just
-            { recursive = True
-            , commonTableExpressions = exprs
-            }
-    , selectTree = builder.selectTree
-    , orderBy = builder.orderBy
-    , limit = builder.limit
-    }
+    List (Result String CommonTableExpression)
+    -> Result String (StatementBuilder Never order limit)
+    -> Result String (StatementBuilder CommonTableClause order limit)
+withRecursive exprs_ builder_ =
+    exprs_
+        |> Result.Extra.combine
+        |> Result.andThen
+            (\exprs ->
+                case NonEmpty.fromList exprs of
+                    Nothing ->
+                        Err "Select.withRecursive needs a nonempty list of CTEs"
 
-
-select : NonEmpty ColumnName -> StatementBuilder cte order limit
-select columns =
-    select_ (NonEmpty.map (\n -> ResultColumnExpr (Expr.columnName n) Nothing) columns)
-
-
-select_ : NonEmpty ResultColumn -> StatementBuilder cte order limit
-select_ columns =
-    let
-        core : SelectCore
-        core =
-            Select
-                { modifier = Nothing
-                , columns = columns
-                , from = Nothing
-                , where_ = Nothing
-                , groupBy = Nothing
-                , having = Nothing
-                , window = Nothing
-                }
-    in
-    { commonTableClause = Nothing
-    , selectTree = Leaf core
-    , orderBy = Nothing
-    , limit = Nothing
-    }
-
-
-from : NonEmpty TableName -> StatementBuilder Never Never Never -> StatementBuilder cte order limit
-from f stat =
-    from_
-        (FromTableOrSubquery
-            (NonEmpty.map
-                (\t ->
-                    TableOrSubqueryTable
-                        { schemaName = Nothing
-                        , tableName = t
-                        , alias = Nothing
-                        , indexed = Nothing
-                        }
-                )
-                f
+                    Just ctes ->
+                        Result.map
+                            (\builder ->
+                                { commonTableClause =
+                                    Just
+                                        { recursive = True
+                                        , commonTableExpressions = ctes
+                                        }
+                                , selectTree = builder.selectTree
+                                , orderBy = builder.orderBy
+                                , limit = builder.limit
+                                }
+                            )
+                            builder_
             )
+
+
+select : List ColumnName -> Result String (StatementBuilder cte order limit)
+select columns =
+    select_ (List.map (\n -> ResultColumnExpr (Expr.columnName n) Nothing) columns)
+
+
+select_ : List ResultColumn -> Result String (StatementBuilder cte order limit)
+select_ columns =
+    case NonEmpty.fromList columns of
+        Nothing ->
+            Err "Select.select_ needs a nonempty list of columns"
+
+        Just cs ->
+            let
+                core : SelectCore
+                core =
+                    Select
+                        { modifier = Nothing
+                        , columns = cs
+                        , from = Nothing
+                        , where_ = Nothing
+                        , groupBy = Nothing
+                        , having = Nothing
+                        , window = Nothing
+                        }
+            in
+            { commonTableClause = Nothing
+            , selectTree = Leaf core
+            , orderBy = Nothing
+            , limit = Nothing
+            }
+                |> Ok
+
+
+from : List TableName -> Result String (StatementBuilder Never Never Never) -> Result String (StatementBuilder cte order limit)
+from f_ s =
+    from_
+        (case NonEmpty.fromList f_ of
+            Nothing ->
+                Err "Select.from needs a nonempty list of table names"
+
+            Just f ->
+                FromTableOrSubquery
+                    (NonEmpty.map
+                        (\t ->
+                            TableOrSubqueryTable
+                                { schemaName = Nothing
+                                , tableName = t
+                                , alias = Nothing
+                                , indexed = Nothing
+                                }
+                        )
+                        f
+                    )
+                    |> Ok
         )
-        stat
+        s
 
 
-from_ : From -> StatementBuilder Never Never Never -> StatementBuilder cte order limit
-from_ f stat =
-    let
-        applyFrom : SelectTree -> SelectTree
-        applyFrom node =
-            case node of
-                Leaf (Select l) ->
-                    Leaf (Select { l | from = Just f })
+from_ : Result String From -> Result String (StatementBuilder Never Never Never) -> Result String (StatementBuilder cte order limit)
+from_ f_ s_ =
+    Result.map2 Tuple.pair f_ s_
+        |> Result.andThen
+            (\( f, stat ) ->
+                let
+                    applyFrom : SelectTree -> Result String SelectTree
+                    applyFrom node =
+                        case node of
+                            Leaf (Select l) ->
+                                Ok (Leaf (Select { l | from = Just f }))
 
-                Leaf (Values _) ->
-                    Debug.todo "branch 'Leaf (Values _)' not implemented"
+                            Leaf (Values _) ->
+                                Err "Cannot apply FROM to VALUES"
 
-                Union _ _ ->
-                    Debug.todo "branch 'Union _ _' not implemented"
+                            Union _ _ ->
+                                Err "Cannot apply FROM to UNION"
 
-                UnionAll _ _ ->
-                    Debug.todo "branch 'UnionAll _ _' not implemented"
+                            UnionAll _ _ ->
+                                Err "Cannot apply FROM to UNION ALL"
 
-                Intersect _ _ ->
-                    Debug.todo "branch 'Intersect _ _' not implemented"
+                            Intersect _ _ ->
+                                Err "Cannot apply FROM to INTERSECT"
 
-                Except _ _ ->
-                    Debug.todo "branch 'Except _ _' not implemented"
-    in
-    { commonTableClause = Nothing
-    , selectTree = applyFrom stat.selectTree
-    , orderBy = Nothing
-    , limit = Nothing
-    }
+                            Except _ _ ->
+                                Err "Cannot apply FROM to EXCEPT"
+                in
+                applyFrom stat.selectTree
+                    |> Result.map
+                        (\newSelectTree ->
+                            { commonTableClause = Nothing
+                            , selectTree = newSelectTree
+                            , orderBy = Nothing
+                            , limit = Nothing
+                            }
+                        )
+            )
 
 
 unionAll :
-    StatementBuilder Never Never Never
-    -> StatementBuilder Never Never Never
-    -> StatementBuilder cte order limit
-unionAll l r =
-    { commonTableClause = Nothing
-    , selectTree = UnionAll l.selectTree r.selectTree
-    , orderBy = Nothing
-    , limit = Nothing
-    }
+    Result String (StatementBuilder Never Never Never)
+    -> Result String (StatementBuilder Never Never Never)
+    -> Result String (StatementBuilder cte order limit)
+unionAll =
+    Result.map2
+        (\l r ->
+            { commonTableClause = Nothing
+            , selectTree = UnionAll l.selectTree r.selectTree
+            , orderBy = Nothing
+            , limit = Nothing
+            }
+        )
 
 
-values : NonEmpty (NonEmpty Expr) -> StatementBuilder cte order limit
+values : List (List Expr) -> Result String (StatementBuilder cte order limit)
 values tuples =
-    { commonTableClause = Nothing
-    , selectTree = Leaf (Values tuples)
-    , orderBy = Nothing
-    , limit = Nothing
-    }
+    case tuples |> Maybe.Extra.combineMap NonEmpty.fromList |> Maybe.andThen NonEmpty.fromList of
+        Nothing ->
+            Err "Select.values needs a nonempty list of nonempty lists"
+
+        Just vs ->
+            { commonTableClause = Nothing
+            , selectTree = Leaf (Values vs)
+            , orderBy = Nothing
+            , limit = Nothing
+            }
+                |> Ok
 
 
 expr : Expr -> ResultColumn
@@ -634,31 +682,39 @@ expr e =
     ResultColumnExpr e Nothing
 
 
-where_ : Expr -> StatementBuilder Never Never Never -> StatementBuilder cte order limit
-where_ e s =
-    let
-        applyWhere node =
-            case node of
-                Leaf (Select sel) ->
-                    Leaf (Select { sel | where_ = Just e })
+where_ : Expr -> Result String (StatementBuilder Never Never Never) -> Result String (StatementBuilder cte order limit)
+where_ e =
+    Result.andThen
+        (\s ->
+            let
+                applyWhere : SelectTree -> Result String SelectTree
+                applyWhere node =
+                    case node of
+                        Leaf (Select sel) ->
+                            Ok (Leaf (Select { sel | where_ = Just e }))
 
-                Leaf (Values _) ->
-                    Debug.todo "branch 'Leaf (Values _)' not implemented"
+                        Leaf (Values _) ->
+                            Err "Cannot apply WHERE to VALUES"
 
-                Union _ _ ->
-                    Debug.todo "branch 'Union _ _' not implemented"
+                        Union _ _ ->
+                            Err "Cannot apply WHERE to UNION"
 
-                UnionAll _ _ ->
-                    Debug.todo "branch 'UnionAll _ _' not implemented"
+                        UnionAll _ _ ->
+                            Err "Cannot apply WHERE to UNION ALL"
 
-                Intersect _ _ ->
-                    Debug.todo "branch 'Intersect _ _' not implemented"
+                        Intersect _ _ ->
+                            Err "Cannot apply WHERE to INTERSECT"
 
-                Except _ _ ->
-                    Debug.todo "branch 'Except _ _' not implemented"
-    in
-    { commonTableClause = Nothing
-    , selectTree = applyWhere s.selectTree
-    , orderBy = Nothing
-    , limit = Nothing
-    }
+                        Except _ _ ->
+                            Err "Cannot apply WHERE to EXCEPT"
+            in
+            applyWhere s.selectTree
+                |> Result.map
+                    (\newSelectTree ->
+                        { commonTableClause = Nothing
+                        , selectTree = newSelectTree
+                        , orderBy = Nothing
+                        , limit = Nothing
+                        }
+                    )
+        )
