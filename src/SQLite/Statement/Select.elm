@@ -243,19 +243,19 @@ commonTableExpressionToRope (CommonTableExpression cte) =
                     |> Rope.append
                         (l
                             |> NonEmpty.toList
-                            |> String.join ", "
+                            |> String.join ","
                         )
                     |> Rope.append ")"
             )
             cte.columns
-        |> Rope.append " AS "
+        |> Rope.append "AS"
         |> Rope.Extra.appendMaybe
             (\b ->
                 if b then
-                    Rope.singleton "MATERIALIZED "
+                    Rope.singleton "MATERIALIZED"
 
                 else
-                    Rope.singleton "NOT MATERIALIZED "
+                    Rope.singleton "NOT MATERIALIZED"
             )
             cte.materialized
         |> Rope.append "("
