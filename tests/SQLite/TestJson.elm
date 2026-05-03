@@ -19,7 +19,7 @@ withRecursive =
         Select.toRope
         """
             WITH RECURSIVE c(n) AS (VALUES(1) UNION ALL SELECT n+1 FROM c WHERE n<25)
-            SELECT sum(json_valid(x)) FROM c, data1;
+            SELECT sum(json_valid(x)) FROM c, data1
         """
         (Select.withRecursive
             [ Select.commonTableExpression "c" [ "n" ] <|
@@ -36,7 +36,6 @@ withRecursive =
             |> assert
             |> Just
         )
-        |> Test.only
 
 
 assert : Result String a -> a

@@ -12,11 +12,12 @@ module SQLite.Expr exposing
 import Bytes exposing (Bytes)
 import Hex.Convert
 import List.NonEmpty exposing (NonEmpty)
-import Parser.OfTokens as Parser exposing (Node(..), PStep(..), Parser)
+import Parser.Extra
+import Parser.OfTokens as Parser exposing (Node(..), PStep(..), Parser, token_)
 import Parser.Token as Token exposing (Token)
 import Rope exposing (Rope)
 import Rope.Extra
-import SQLite.Types exposing (AscDesc, ColumnName, FirstLast, SchemaName, TableName)
+import SQLite.Types exposing (AscDesc(..), ColumnName, FirstLast(..), SchemaName, TableName)
 
 
 type Expr
@@ -44,7 +45,7 @@ type FunctionArguments
 type alias OrderingTerm =
     { expr : Expr
     , collate : Maybe CollationName
-    , order : AscDesc
+    , order : Maybe AscDesc
     , nulls : Maybe FirstLast
     }
 
@@ -184,6 +185,8 @@ leafParser : Parser Token Expr
 leafParser =
     Parser.oneOf
         [ Parser.map LiteralValue literalValueParser
+        , Parser.problem "Bind parameter"
+        , functionCallParser
         , Parser.custom
             (\position stream ->
                 case stream of
@@ -199,8 +202,81 @@ leafParser =
                     _ ->
                         Parser.errorAt False position (Parser.Problem "Expecting (optionally qualified) column name")
             )
-        , Parser.problem "Expr.parser"
+        , Parser.problem "Expr.leafParser"
         ]
+
+
+functionCallParser : Parser Token Expr
+functionCallParser =
+    Parser.succeed Call
+        |> Parser.backtrackable_ Parser.Extra.ident
+        |> Parser.token_ Token.ParensOpen
+        |> Parser.keep functionArgumentsParser
+        |> Parser.token_ Token.ParensClose
+        |> Parser.maybe_ filterClauseParser
+        |> Parser.maybe_ overClauseParser
+
+
+functionArgumentsParser : Parser Token FunctionArguments
+functionArgumentsParser =
+    Parser.oneOf
+        [ Parser.succeed FunctionArgumentsStar |> Parser.token_ Token.Star
+        , Parser.succeed
+            (\d e o ->
+                FunctionArgumentsList
+                    { distinct = d
+                    , expressions = e
+                    , orderBy = o
+                    }
+            )
+            |> Parser.oneOf_
+                [ Parser.succeed True |> Parser.token_ Token.Distinct
+                , Parser.succeed False
+                ]
+            |> Parser.manyWithSeparator_ Token.Comma (Parser.lazy (\() -> parser))
+            |> Parser.maybe_
+                (Parser.succeed identity
+                    |> Parser.token_ Token.Order
+                    |> Parser.token_ Token.By
+                    |> Parser.manyWithSeparator_ Token.Comma orderingTermParser
+                )
+        , Parser.succeed FunctionArgumentsEmpty
+        ]
+
+
+orderingTermParser : Parser Token OrderingTerm
+orderingTermParser =
+    Parser.succeed OrderingTerm
+        |> Parser.keep (Parser.lazy (\() -> parser))
+        |> Parser.maybe_
+            (Parser.succeed identity
+                |> Parser.token_ Token.Collate
+                |> Parser.Extra.ident_
+            )
+        |> Parser.oneOf_
+            [ Parser.succeed (Just Asc) |> token_ Token.Asc
+            , Parser.succeed (Just Desc) |> token_ Token.Desc
+            , Parser.succeed Nothing
+            ]
+        |> Parser.oneOf_
+            [ Parser.succeed Just
+                |> token_ Token.Nulls
+                |> Parser.oneOf_
+                    [ Parser.succeed First |> token_ Token.First
+                    , Parser.succeed Last |> token_ Token.Last
+                    ]
+            , Parser.succeed Nothing
+            ]
+
+
+filterClauseParser : Parser Token FilterClause
+filterClauseParser =
+    Parser.problem "Expr.filterClauseParser"
+
+
+overClauseParser : Parser Token OverClause
+overClauseParser =
+    Parser.problem "Expr.overClauseParser"
 
 
 literalValueParser : Parser Token LiteralValue
