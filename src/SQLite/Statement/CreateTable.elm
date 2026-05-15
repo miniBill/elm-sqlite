@@ -764,20 +764,17 @@ ascDescParser =
 nameOrExprParser : Parser Token NameOrExpr
 nameOrExprParser =
     Parser.oneOf
-        [ Parser.map IsName ident
-        , Expr.parser
+        [ Expr.parser
             |> Parser.map
                 (\expr ->
-                    let
-                        _ =
-                            Debug.todo
-                    in
-                    -- case expr of
-                    --     Expr.ColumnName Nothing Nothing name ->
-                    --         IsName name
-                    --     _ ->
-                    IsExpr expr
+                    case expr of
+                        Expr.ColumnName Nothing Nothing name ->
+                            IsName name
+
+                        _ ->
+                            IsExpr expr
                 )
+        , Parser.map IsName ident
         ]
 
 

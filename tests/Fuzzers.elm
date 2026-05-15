@@ -271,7 +271,15 @@ id =
             (\s ->
                 case Token.fromString (String.toUpper s) of
                     Nothing ->
-                        s
+                        case String.toUpper s of
+                            "TRUE" ->
+                                s ++ "_"
+
+                            "FALSE" ->
+                                s ++ "_"
+
+                            _ ->
+                                s
 
                     Just _ ->
                         s ++ "_"
