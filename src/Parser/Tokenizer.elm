@@ -10,7 +10,7 @@ tokenizer input =
     tokenizerHelper
         { row = 1, column = 1 }
         (String.toList input)
-        (String.toList (String.toUpper input))
+        (String.toList input |> List.map Char.toUpper)
         []
 
 
