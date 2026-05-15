@@ -764,7 +764,8 @@ ascDescParser =
 nameOrExprParser : Parser Token NameOrExpr
 nameOrExprParser =
     Parser.oneOf
-        [ Expr.parser
+        [ Parser.map IsName ident
+        , Expr.parser
             |> Parser.map
                 (\expr ->
                     let
@@ -777,7 +778,6 @@ nameOrExprParser =
                     --     _ ->
                     IsExpr expr
                 )
-        , Parser.map IsName ident
         ]
 
 
