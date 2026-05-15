@@ -52,9 +52,11 @@ checkRoundtrip label fuzzer toRope parser =
                         Expect.pass
 
                     else
-                        [ testOutputRow label valueView
+                        [ "Parsed /= Ok value"
+                        , testOutputRow label valueView
                         , testOutputRow "Tokenized" (tokenizedToString tokenized)
                         , testOutputRow "Parsed" (parseResultToString toRope valueString parsed)
+                        , testOutputRow "Value" (parseResultToString toRope valueString (Ok value))
                         ]
                             |> String.join "\n"
                             |> Expect.fail
@@ -65,7 +67,8 @@ checkRoundtrip label fuzzer toRope parser =
                         lines =
                             String.split "\n" valueString
                     in
-                    [ testOutputRow label valueView
+                    [ "Failed to tokenize"
+                    , testOutputRow label valueView
                     , testOutputRow "Tokenized" (viewProblem lines location.row location.column [ e ])
                     ]
                         |> String.join "\n"
