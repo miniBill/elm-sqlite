@@ -221,7 +221,7 @@ relationParser =
 
 addSubParser : Parser Token Expr
 addSubParser =
-    Parser.succeed (\l f -> f l)
+    Parser.succeed (|>)
         |> Parser.keep leafParser
         |> Parser.oneOf_
             [ Parser.succeed (\r l -> add l r)
