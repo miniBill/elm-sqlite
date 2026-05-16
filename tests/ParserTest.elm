@@ -70,7 +70,7 @@ testParse label parser toRope input value =
 
                             else
                                 [ testOutputRow label input
-                                , testOutputRow "Tokenized" (tokenizedToString tokenized)
+                                , testOutputRow "Tokenized" (tokenizedToString tokenized input)
                                 , testOutputRow "Parsed" (TestCommon.parseResultToString toRope input parsed)
                                 ]
                                     |> String.join "\n"
@@ -83,7 +83,7 @@ testParse label parser toRope input value =
 
                                 Err _ ->
                                     [ testOutputRow label input
-                                    , testOutputRow "Tokenized" (tokenizedToString tokenized)
+                                    , testOutputRow "Tokenized" (tokenizedToString tokenized input)
                                     , testOutputRow "Parsed" (TestCommon.parseResultToString toRope input parsed)
                                     ]
                                         |> String.join "\n"

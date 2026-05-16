@@ -54,7 +54,7 @@ checkRoundtrip label fuzzer toRope parser =
                     else
                         [ "Parsed /= Ok value"
                         , testOutputRow label valueView
-                        , testOutputRow "Tokenized" (tokenizedToString tokenized)
+                        , testOutputRow "Tokenized" (tokenizedToString tokenized valueString)
                         , testOutputRow "Parsed" (parseResultToString toRope valueString parsed)
                         , testOutputRow "Value" (parseResultToString toRope valueString (Ok value))
                         ]

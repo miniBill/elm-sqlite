@@ -138,8 +138,8 @@ viewProblem lines row column messages =
         ++ post
 
 
-tokenizedToString : List (Node Token) -> String
-tokenizedToString tokens =
+tokenizedToString : List (Node Token) -> String -> String
+tokenizedToString tokens input =
     tokens
         |> List.map (\(Node _ t) -> Token.toString t ++ " [" ++ Debug.toString t ++ "]")
         |> String.join " "
