@@ -1,6 +1,7 @@
 module TestCommon exposing (parseResultToString, testOutputRow, tokenizedToString, viewProblem)
 
 import Ansi.Color
+import Bitwise
 import List.Extra
 import Parser.OfTokens as Parser exposing (Node(..))
 import Parser.Token as Token exposing (Token)
@@ -203,25 +204,43 @@ getCurrentToken ( row, column ) queue =
 
 colorToken : Int -> Node Token -> ( Node Token, String -> String )
 colorToken i ((Node _ token) as node) =
+    let
+        get : Int -> Int -> Int
+        get o v =
+            v
+                |> Bitwise.shiftRightBy o
+                |> Bitwise.and 0xFF
+
+        rgb : Int -> String -> String
+        rgb v =
+            { red = get 16 v
+            , green = get 8 v
+            , blue = get 0 v
+            }
+                |> Ansi.Color.rgb
+                |> Ansi.Color.fontColor
+    in
     ( node
     , case token of
         Token.Ident _ ->
-            Ansi.Color.fontColor Ansi.Color.green
+            rgb 0x009CDCFE
 
         Token.Number _ ->
-            Ansi.Color.fontColor Ansi.Color.blue
+            rgb 0x00B5CEA8
 
         Token.String _ ->
-            Ansi.Color.fontColor Ansi.Color.red
+            rgb 0x00CE9178
+
+        Token.ParensOpen ->
+            rgb 0x00CE9178
+
+        Token.ParensClose ->
+            rgb 0x00CE9178
 
         _ ->
-            case modBy 3 i of
-                0 ->
-                    Ansi.Color.fontColor Ansi.Color.brightCyan
+            if String.all (\c -> Char.isAlpha c || c == '_') (Token.toString token) then
+                rgb 0x00C586C0
 
-                1 ->
-                    Ansi.Color.fontColor Ansi.Color.brightYellow
-
-                _ ->
-                    Ansi.Color.fontColor Ansi.Color.brightMagenta
+            else
+                rgb 0x00C0C0C0
     )
