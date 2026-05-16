@@ -31,6 +31,7 @@ type Token
     | Check
     | Collate
     | Column
+    | Comma
     | Commit
     | Conflict
     | Constraint
@@ -47,8 +48,10 @@ type Token
     | Delete
     | Desc
     | Detach
+    | Different
     | Distinct
     | Do
+    | Dot
     | Drop
     | Each
     | Else
@@ -70,6 +73,8 @@ type Token
     | Full
     | Generated
     | Glob
+    | GreaterThan
+    | GreaterThanOrEquals
     | Group
     | Groups
     | Having
@@ -92,10 +97,13 @@ type Token
     | Key
     | Last
     | Left
+    | LessThan
+    | LessThanOrEquals
     | Like
     | Limit
     | Match
     | Materialized
+    | Minus
     | Natural
     | No
     | Not
@@ -107,13 +115,16 @@ type Token
     | Offset
     | On
     | Or
-    | OrSymbol
     | Order
+    | OrSymbol
     | Others
     | Outer
     | Over
+    | ParensClose
+    | ParensOpen
     | Partition
     | Plan
+    | Plus
     | Pragma
     | Preceding
     | Primary
@@ -135,7 +146,9 @@ type Token
     | Rows
     | Savepoint
     | Select
+    | Semicolon
     | Set
+    | Star
     | Table
     | Temp
     | Temporary
@@ -159,18 +172,6 @@ type Token
     | Window
     | With
     | Without
-    | Comma
-    | Semicolon
-    | Dot
-    | Plus
-    | Minus
-    | Star
-    | LessThan
-    | LessThanOrEquals
-    | GreaterThan
-    | GreaterThanOrEquals
-    | ParensClose
-    | ParensOpen
     | Ident String
     | Number Float
     | String String
@@ -699,6 +700,9 @@ toString input =
         Column ->
             "COLUMN"
 
+        Comma ->
+            ","
+
         Commit ->
             "COMMIT"
 
@@ -747,11 +751,17 @@ toString input =
         Detach ->
             "DETACH"
 
+        Different ->
+            "<>"
+
         Distinct ->
             "DISTINCT"
 
         Do ->
             "DO"
+
+        Dot ->
+            "."
 
         Drop ->
             "DROP"
@@ -764,6 +774,9 @@ toString input =
 
         End ->
             "END"
+
+        Equals ->
+            "="
 
         Escape ->
             "ESCAPE"
@@ -812,6 +825,12 @@ toString input =
 
         Glob ->
             "GLOB"
+
+        GreaterThan ->
+            ">"
+
+        GreaterThanOrEquals ->
+            ">="
 
         Group ->
             "GROUP"
@@ -879,6 +898,12 @@ toString input =
         Left ->
             "LEFT"
 
+        LessThan ->
+            "<"
+
+        LessThanOrEquals ->
+            "<="
+
         Like ->
             "LIKE"
 
@@ -890,6 +915,9 @@ toString input =
 
         Materialized ->
             "MATERIALIZED"
+
+        Minus ->
+            "-"
 
         Natural ->
             "NATURAL"
@@ -927,6 +955,9 @@ toString input =
         Order ->
             "ORDER"
 
+        OrSymbol ->
+            "||"
+
         Others ->
             "OTHERS"
 
@@ -936,11 +967,20 @@ toString input =
         Over ->
             "OVER"
 
+        ParensClose ->
+            ")"
+
+        ParensOpen ->
+            "("
+
         Partition ->
             "PARTITION"
 
         Plan ->
             "PLAN"
+
+        Plus ->
+            "+"
 
         Pragma ->
             "PRAGMA"
@@ -1005,8 +1045,14 @@ toString input =
         Select ->
             "SELECT"
 
+        Semicolon ->
+            ";"
+
         Set ->
             "SET"
+
+        Star ->
+            "*"
 
         Table ->
             "TABLE"
@@ -1022,6 +1068,9 @@ toString input =
 
         Ties ->
             "TIES"
+
+        Tilde ->
+            "~"
 
         To ->
             "TO"
@@ -1074,42 +1123,6 @@ toString input =
         Without ->
             "WITHOUT"
 
-        ParensClose ->
-            ")"
-
-        ParensOpen ->
-            "("
-
-        Comma ->
-            ","
-
-        Dot ->
-            "."
-
-        Plus ->
-            "+"
-
-        Minus ->
-            "-"
-
-        Star ->
-            "*"
-
-        LessThan ->
-            "<"
-
-        LessThanOrEquals ->
-            "<="
-
-        GreaterThan ->
-            ">"
-
-        GreaterThanOrEquals ->
-            ">="
-
-        Semicolon ->
-            ";"
-
         Ident i ->
             i
 
@@ -1118,12 +1131,3 @@ toString input =
 
         String s ->
             "'" ++ String.replace "'" "''" s ++ "'"
-
-        OrSymbol ->
-            "||"
-
-        Tilde ->
-            "~"
-
-        Equals ->
-            "="
