@@ -11,7 +11,7 @@ module SQLite.Expr exposing
 
 import Bytes exposing (Bytes)
 import Hex.Convert
-import List.NonEmpty exposing (NonEmpty)
+import List.NonEmpty as NonEmpty exposing (NonEmpty)
 import Parser.Extra
 import Parser.OfTokens as Parser exposing (Node(..), PStep(..), Parser, token_)
 import Parser.Token as Token exposing (Token)
@@ -188,14 +188,8 @@ literalValueToString literal =
 
 parser : Parser Token Expr
 parser =
-    Parser.succeed (|>)
-        |> Parser.keep relationParser
-        |> Parser.oneOf_
-            [ Parser.succeed (\r l -> and l r)
-                |> Parser.token_ Token.And
-                |> Parser.keep relationParser
-            , Parser.succeed identity
-            ]
+    Parser.succeed (NonEmpty.foldl1 and)
+        |> Parser.manyWithSeparator_ Token.And relationParser
 
 
 relationParser : Parser Token Expr
@@ -214,6 +208,9 @@ relationParser =
                 |> Parser.keep addSubParser
             , Parser.succeed (\r l -> geq l r)
                 |> Parser.token_ Token.GreaterThanOrEquals
+                |> Parser.keep addSubParser
+            , Parser.succeed (\r l -> eq l r)
+                |> Parser.token_ Token.Equals
                 |> Parser.keep addSubParser
             , Parser.succeed identity
             ]
@@ -420,6 +417,11 @@ gt l r =
 geq : Expr -> Expr -> Expr
 geq l r =
     Binary l Geq r
+
+
+eq : Expr -> Expr -> Expr
+eq l r =
+    Binary l Eq r
 
 
 and : Expr -> Expr -> Expr
