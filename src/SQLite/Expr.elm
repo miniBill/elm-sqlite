@@ -1,6 +1,6 @@
 module SQLite.Expr exposing
     ( Expr(..), LiteralValue(..), literalValueToString, literalValueParser, parser, toRope
-    , add, call, columnName, int, literalValueToRope, lt
+    , call, columnName, int, literalValueToRope, lt, minus, plus
     )
 
 {-|
@@ -76,12 +76,14 @@ type LiteralValue
 
 type BinaryOperator
     = And
-    | Plus
     | Eq
     | Geq
     | Gt
     | Leq
     | Lt
+    | Minus
+    | Neq
+    | Plus
 
 
 toRope : Expr -> Rope String
@@ -109,7 +111,7 @@ toRope expr =
         Binary l op r ->
             Rope.singleton "("
                 |> Rope.prependTo (toRope l)
-                |> Rope.append (" " ++ binaryOperatorToString op ++ " ")
+                |> Rope.append (binaryOperatorToString op)
                 |> Rope.prependTo (toRope r)
                 |> Rope.append ")"
 
@@ -120,26 +122,32 @@ toRope expr =
 binaryOperatorToString : BinaryOperator -> String
 binaryOperatorToString op =
     case op of
-        Plus ->
-            "+"
-
-        Lt ->
-            "<"
-
-        Leq ->
-            "<="
-
-        Gt ->
-            ">"
-
-        Geq ->
-            ">="
+        And ->
+            "AND"
 
         Eq ->
             "="
 
-        And ->
-            "AND"
+        Geq ->
+            ">="
+
+        Gt ->
+            ">"
+
+        Leq ->
+            "<="
+
+        Lt ->
+            "<"
+
+        Minus ->
+            "-"
+
+        Neq ->
+            "<>"
+
+        Plus ->
+            "+"
 
 
 functionArgumentsToRope : FunctionArguments -> Rope FunctionName
@@ -212,20 +220,20 @@ relationParser =
             , Parser.succeed (\r l -> eq l r)
                 |> Parser.token_ Token.Equals
                 |> Parser.keep addSubParser
+            , Parser.succeed (\r l -> neq l r)
+                |> Parser.token_ Token.Different
+                |> Parser.keep addSubParser
             , Parser.succeed identity
             ]
 
 
 addSubParser : Parser Token Expr
 addSubParser =
-    Parser.succeed (|>)
-        |> Parser.keep leafParser
-        |> Parser.oneOf_
-            [ Parser.succeed (\r l -> add l r)
-                |> Parser.token_ Token.Plus
-                |> Parser.keep leafParser
-            , Parser.succeed identity
-            ]
+    Parser.manyWithSeparators
+        [ ( Token.Plus, plus )
+        , ( Token.Minus, minus )
+        ]
+        leafParser
 
 
 leafParser : Parser Token Expr
@@ -394,9 +402,14 @@ columnName v =
     ColumnName Nothing Nothing v
 
 
-add : Expr -> Expr -> Expr
-add l r =
+plus : Expr -> Expr -> Expr
+plus l r =
     Binary l Plus r
+
+
+minus : Expr -> Expr -> Expr
+minus l r =
+    Binary l Minus r
 
 
 lt : Expr -> Expr -> Expr
@@ -422,6 +435,11 @@ geq l r =
 eq : Expr -> Expr -> Expr
 eq l r =
     Binary l Eq r
+
+
+neq : Expr -> Expr -> Expr
+neq l r =
+    Binary l Neq r
 
 
 and : Expr -> Expr -> Expr

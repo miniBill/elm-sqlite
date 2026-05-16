@@ -25,7 +25,7 @@ withRecursive =
             [ Select.commonTableExpression "c" [ "n" ] <|
                 Select.unionAll
                     (Select.values [ [ Expr.int 1 ] ])
-                    (Select.select_ [ Select.expr (Expr.add (Expr.columnName "n") (Expr.int 1)) ]
+                    (Select.select_ [ Select.expr (Expr.plus (Expr.columnName "n") (Expr.int 1)) ]
                         |> Select.from [ "c" ]
                         |> Select.where_ (Expr.lt (Expr.columnName "n") (Expr.int 25))
                     )

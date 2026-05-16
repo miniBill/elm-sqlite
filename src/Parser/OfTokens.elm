@@ -1,11 +1,11 @@
 module Parser.OfTokens exposing
-    ( DeadEnd, Error(..), Location, Node(..), PStep(..), Parser, Range, Trailing(..), custom, custom_, end, errorAt, keep, many, many_, map, maybe, maybe_, oneOf, oneOf_, problem, run, sequence, sequence_, skip, succeed, token, token_, manyWithSeparator, manyWithSeparator_
+    ( DeadEnd, Error(..), Location, Node(..), PStep(..), Parser, Range, Trailing(..), custom, custom_, end, errorAt, keep, many, many_, map, maybe, maybe_, oneOf, oneOf_, problem, run, sequence, sequence_, skip, succeed, token, token_, manyWithSeparator, manyWithSeparator_, manyWithSeparators
     , backtrackable, backtrackable_, lazy
     )
 
 {-|
 
-@docs DeadEnd, Error, Location, Node, PStep, Parser, Range, Trailing, custom, custom_, end, errorAt, keep, many, many_, map, maybe, maybe_, oneOf, oneOf_, problem, run, sequence, sequence_, skip, succeed, token, token_, manyWithSeparator, manyWithSeparator_
+@docs DeadEnd, Error, Location, Node, PStep, Parser, Range, Trailing, custom, custom_, end, errorAt, keep, many, many_, map, maybe, maybe_, oneOf, oneOf_, problem, run, sequence, sequence_, skip, succeed, token, token_, manyWithSeparator, manyWithSeparator_, manyWithSeparators, manyWithSeparators_
 
 -}
 
@@ -390,6 +390,37 @@ manyWithSeparator_ :
     -> Parser token b
 manyWithSeparator_ separator parser main =
     main |> keep (manyWithSeparator separator parser)
+
+
+manyWithSeparators :
+    List ( token, a -> a -> a )
+    -> Parser token a
+    -> Parser token a
+manyWithSeparators separators parser =
+    succeed (\f r -> List.foldl (\( o, v ) a -> o a v) f r)
+        |> keep parser
+        |> many_
+            (succeed Tuple.pair
+                |> keep
+                    (separators
+                        |> List.map
+                            (\( separator, op ) ->
+                                succeed op
+                                    |> token_ separator
+                            )
+                        |> oneOf
+                    )
+                |> keep parser
+            )
+
+
+manyWithSeparators_ :
+    List ( token, a -> a -> a )
+    -> Parser token a
+    -> Parser token (a -> b)
+    -> Parser token b
+manyWithSeparators_ separators parser main =
+    main |> keep (manyWithSeparators separators parser)
 
 
 backtrackable_ : Parser token a -> Parser token (a -> b) -> Parser token b

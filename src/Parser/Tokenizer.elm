@@ -67,6 +67,9 @@ tokenizerHelper position input acc =
         ( '<', _ ) :: ( '=', _ ) :: tail ->
             simple 2 Token.LessThanOrEquals tail
 
+        ( '<', _ ) :: ( '>', _ ) :: tail ->
+            simple 2 Token.Different tail
+
         ( '<', _ ) :: tail ->
             simple 1 Token.LessThan tail
 
