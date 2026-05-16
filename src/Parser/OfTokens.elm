@@ -405,8 +405,8 @@ manyWithSeparators separators parser =
                     (separators
                         |> List.map
                             (\( separator, op ) ->
-                                succeed op
-                                    |> token_ separator
+                                token separator
+                                    |> map (\_ -> op)
                             )
                         |> oneOf
                     )
