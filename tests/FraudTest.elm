@@ -197,4 +197,4 @@ windowExample =
     WHERE tx_of_day >= 5
         AND date(time_of_last, '+60 second') < timestamp
         AND merchant_change = 'changed'
-    """ |> justParseStatement_ "Window example" |> Test.only
+    """ |> justParseStatement_ "Window example"
