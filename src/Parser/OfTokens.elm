@@ -17,12 +17,16 @@ type Node a
     = Node Range a
 
 
+{-| A range of characters. `start` is included, `end` is excluded.
+-}
 type alias Range =
     { start : Location
     , end : Location
     }
 
 
+{-| A location in the input. Both `row` and `column` are 1-based indexes.
+-}
 type alias Location =
     { row : Int
     , column : Int
