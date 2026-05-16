@@ -95,7 +95,12 @@ tokenizerHelper position input acc =
 
         -- Strings
         ( '\'', _ ) :: tail ->
-            case chompString position tail [] of
+            let
+                positionAfterQuote : Location
+                positionAfterQuote =
+                    { position | column = position.column + 1 }
+            in
+            case chompString positionAfterQuote tail [] of
                 Err e ->
                     Err e
 
