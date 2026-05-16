@@ -1,4 +1,4 @@
-module ParserTest exposing (justParseStatement, testParse)
+module ParserTest exposing (justParseStatement, justParseStatement_, testParse)
 
 import Expect
 import Parser.OfTokens as Parser exposing (Parser)
@@ -14,9 +14,11 @@ import TestCommon exposing (testOutputRow, tokenizedToString)
 justParseStatement : String -> Test
 justParseStatement input =
     let
+        clean : String
         clean =
             String.Multiline.here input
 
+        firstLine : String
         firstLine =
             clean
                 |> String.split "\n"
@@ -24,6 +26,23 @@ justParseStatement input =
                 |> String.concat
     in
     testParse firstLine Statement.parser Statement.toRope clean Nothing
+
+
+justParseStatement_ : String -> String -> Test
+justParseStatement_ label input =
+    let
+        clean : String
+        clean =
+            String.Multiline.here input
+
+        firstLine : String
+        firstLine =
+            clean
+                |> String.split "\n"
+                |> List.take 1
+                |> String.concat
+    in
+    testParse label Statement.parser Statement.toRope clean Nothing
 
 
 testParse :
