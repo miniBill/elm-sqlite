@@ -53,6 +53,7 @@ type Token
     | Each
     | Else
     | End
+    | Equals
     | Escape
     | Except
     | Exclude
@@ -106,6 +107,7 @@ type Token
     | Offset
     | On
     | Or
+    | OrSymbol
     | Order
     | Others
     | Outer
@@ -139,6 +141,7 @@ type Token
     | Temporary
     | Then
     | Ties
+    | Tilde
     | To
     | Transaction
     | Trigger
@@ -164,6 +167,8 @@ type Token
     | Star
     | LessThan
     | LessThanOrEquals
+    | GreaterThan
+    | GreaterThanOrEquals
     | ParensClose
     | ParensOpen
     | Ident String
@@ -1096,6 +1101,12 @@ toString input =
         LessThanOrEquals ->
             "<="
 
+        GreaterThan ->
+            ">"
+
+        GreaterThanOrEquals ->
+            ">="
+
         Semicolon ->
             ";"
 
@@ -1107,3 +1118,12 @@ toString input =
 
         String s ->
             "'" ++ String.replace "'" "''" s ++ "'"
+
+        OrSymbol ->
+            "||"
+
+        Tilde ->
+            "~"
+
+        Equals ->
+            "="

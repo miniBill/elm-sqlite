@@ -7,87 +7,112 @@ import Parser.Token as Token exposing (Token)
 
 tokenizer : String -> Result ( Location, String ) (List (Node Token))
 tokenizer input =
+    let
+        list : List Char
+        list =
+            String.toList input
+    in
     tokenizerHelper
         { row = 1, column = 1 }
-        (String.toList input)
-        (String.toList input |> List.map Char.toUpper)
+        (List.map (\c -> ( c, Char.toUpper c )) list)
         []
 
 
-tokenizerHelper : Location -> List Char -> List Char -> List (Node Token) -> Result ( Location, String ) (List (Node Token))
-tokenizerHelper position input inputUppercase acc =
+tokenizerHelper : Location -> List ( Char, Char ) -> List (Node Token) -> Result ( Location, String ) (List (Node Token))
+tokenizerHelper position input acc =
     let
-        simple : Token -> List Char -> Result ( Location, String ) (List (Node Token))
-        simple token tail =
+        simple : Int -> Token -> List ( Char, Char ) -> Result ( Location, String ) (List (Node Token))
+        simple len token tail =
             let
                 next : Location
                 next =
-                    { position | column = position.column + 1 }
+                    { position | column = position.column + len }
 
                 node : Node Token
                 node =
                     Node { start = position, end = next } token
             in
-            tokenizerHelper next (List.drop 1 input) tail (node :: acc)
+            tokenizerHelper next tail (node :: acc)
     in
-    case inputUppercase of
+    case input of
         [] ->
             Ok (List.reverse acc)
 
-        '(' :: tail ->
-            simple Token.ParensOpen tail
+        -- Parens
+        ( '(', _ ) :: tail ->
+            simple 1 Token.ParensOpen tail
 
-        ')' :: tail ->
-            simple Token.ParensClose tail
+        ( ')', _ ) :: tail ->
+            simple 1 Token.ParensClose tail
 
-        ',' :: tail ->
-            simple Token.Comma tail
+        -- Operators
+        ( '~', _ ) :: tail ->
+            simple 1 Token.Tilde tail
 
-        ';' :: tail ->
-            simple Token.Semicolon tail
+        ( '+', _ ) :: tail ->
+            simple 1 Token.Plus tail
 
-        '.' :: tail ->
-            simple Token.Dot tail
+        ( '-', _ ) :: tail ->
+            simple 1 Token.Minus tail
 
-        '+' :: tail ->
-            simple Token.Plus tail
+        ( '|', _ ) :: ( '|', _ ) :: tail ->
+            simple 2 Token.OrSymbol tail
 
-        '-' :: tail ->
-            simple Token.Minus tail
+        ( '.', _ ) :: tail ->
+            simple 1 Token.Dot tail
 
-        '*' :: tail ->
-            simple Token.Star tail
+        ( '*', _ ) :: tail ->
+            simple 1 Token.Star tail
 
-        '<' :: '=' :: tail ->
-            simple Token.LessThanOrEquals tail
+        ( '<', _ ) :: ( '=', _ ) :: tail ->
+            simple 2 Token.LessThanOrEquals tail
 
-        '<' :: tail ->
-            simple Token.LessThan tail
+        ( '<', _ ) :: tail ->
+            simple 1 Token.LessThan tail
 
-        ' ' :: tail ->
-            tokenizerHelper { position | column = position.column + 1 } (List.drop 1 input) tail acc
+        ( '>', _ ) :: ( '=', _ ) :: tail ->
+            simple 2 Token.GreaterThanOrEquals tail
 
-        '\n' :: tail ->
-            tokenizerHelper { column = 1, row = position.row + 1 } (List.drop 1 input) tail acc
+        ( '>', _ ) :: tail ->
+            simple 1 Token.GreaterThan tail
 
-        '\'' :: tail ->
-            case chompString position (List.drop 1 input) tail [] of
+        ( '=', _ ) :: tail ->
+            simple 1 Token.Equals tail
+
+        -- Other
+        ( ',', _ ) :: tail ->
+            simple 1 Token.Comma tail
+
+        ( ';', _ ) :: tail ->
+            simple 1 Token.Semicolon tail
+
+        -- Whitespace
+        ( ' ', _ ) :: tail ->
+            tokenizerHelper { position | column = position.column + 1 } tail acc
+
+        ( '\n', _ ) :: tail ->
+            tokenizerHelper { column = 1, row = position.row + 1 } tail acc
+
+        -- Strings
+        ( '\'', _ ) :: tail ->
+            case chompString position tail [] of
                 Err e ->
                     Err e
 
-                Ok ( string, ( newPosition, newInput, newInputUppercase ) ) ->
+                Ok ( string, ( newPosition, newInput ) ) ->
                     let
                         token : Node Token
                         token =
                             Node { start = position, end = newPosition } (Token.String string)
                     in
-                    tokenizerHelper newPosition newInput newInputUppercase (token :: acc)
+                    tokenizerHelper newPosition newInput (token :: acc)
 
-        head :: _ ->
+        -- Identifiers, numbers and keywords
+        ( head, _ ) :: _ ->
             if Char.isAlpha head then
                 let
-                    ( ( tokenContent, newInput ), ( tokenUppercaseContent, newInputUppercase ) ) =
-                        id input inputUppercase
+                    ( ( tokenContent, tokenUppercaseContent ), newInput ) =
+                        id input
 
                     next : Location
                     next =
@@ -102,14 +127,14 @@ tokenizerHelper position input inputUppercase acc =
                         Token.fromString tokenUppercaseContent
                             |> Maybe.withDefault (Token.Ident tokenContent)
                 in
-                tokenizerHelper next newInput newInputUppercase (node token :: acc)
+                tokenizerHelper next newInput (node token :: acc)
 
             else if Char.isDigit head then
                 let
                     ( tokenContent, newInput ) =
                         input
-                            |> List.Extra.span (\c -> c == '.' || Char.isDigit c)
-                            |> Tuple.mapFirst String.fromList
+                            |> List.Extra.span (\( c, _ ) -> c == '.' || Char.isDigit c)
+                            |> Tuple.mapFirst (\s -> s |> List.unzip |> Tuple.first |> String.fromList)
                 in
                 case String.toFloat tokenContent of
                     Nothing ->
@@ -124,59 +149,54 @@ tokenizerHelper position input inputUppercase acc =
                             node : a -> Node a
                             node t =
                                 Node { start = position, end = next } t
-
-                            newInputUppercase : List Char
-                            newInputUppercase =
-                                inputUppercase
-                                    |> List.Extra.dropWhile (\c -> c == '.' || Char.isDigit c)
                         in
-                        tokenizerHelper next newInput newInputUppercase (node (Token.Number f) :: acc)
+                        tokenizerHelper next newInput (node (Token.Number f) :: acc)
 
             else
                 Err ( position, "Unexpected char '" ++ String.fromChar head ++ "'" )
 
 
-chompString : Location -> List Char -> List Char -> List Char -> Result ( Location, String ) ( String, ( Location, List Char, List Char ) )
-chompString position input inputUppercase acc =
+chompString : Location -> List ( Char, Char ) -> List Char -> Result ( Location, String ) ( String, ( Location, List ( Char, Char ) ) )
+chompString position input acc =
     case input of
-        '\'' :: '\'' :: tail ->
+        ( '\'', _ ) :: ( '\'', _ ) :: tail ->
             chompString
                 { position | column = position.column + 2 }
                 tail
-                (List.drop 2 inputUppercase)
                 ('\'' :: acc)
 
-        '\'' :: tail ->
+        ( '\'', _ ) :: tail ->
             ( String.fromList (List.reverse acc)
-            , ( { position | column = position.column + 1 }, tail, List.drop 1 inputUppercase )
+            , ( { position | column = position.column + 1 }, tail )
             )
                 |> Ok
 
-        '\n' :: tail ->
+        ( '\n', _ ) :: tail ->
             chompString
                 { row = position.row + 1, column = 1 }
                 tail
-                (List.drop 1 inputUppercase)
                 ('\n' :: acc)
 
-        c :: tail ->
+        ( c, _ ) :: tail ->
             chompString
                 { position | column = position.column + 1 }
                 tail
-                (List.drop 1 inputUppercase)
                 (c :: acc)
 
         [] ->
             Err ( position, "Unexpected end of input while reading string" )
 
 
-id : List Char -> List Char -> ( ( String, List Char ), ( String, List Char ) )
-id input inputUppercase =
-    ( List.Extra.span isIdChar input
-        |> Tuple.mapFirst String.fromList
-    , List.Extra.span isIdChar inputUppercase
-        |> Tuple.mapFirst String.fromList
-    )
+id : List ( Char, Char ) -> ( ( String, String ), List ( Char, Char ) )
+id input =
+    let
+        ( before, after ) =
+            List.Extra.span (\( c, _ ) -> isIdChar c) input
+
+        ( ls, us ) =
+            List.unzip before
+    in
+    ( ( String.fromList ls, String.fromList us ), after )
 
 
 isIdChar : Char -> Bool
