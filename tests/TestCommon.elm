@@ -7,6 +7,7 @@ import Parser.Token as Token exposing (Token)
 import Result.Extra
 import Rope exposing (Rope)
 import SQLite.Types as Types
+import Triple.Extra
 
 
 testOutputRow : String -> String -> String
@@ -140,6 +141,87 @@ viewProblem lines row column messages =
 
 tokenizedToString : List (Node Token) -> String -> String
 tokenizedToString tokens input =
-    tokens
-        |> List.map (\(Node _ t) -> Token.toString t ++ " [" ++ Debug.toString t ++ "]")
-        |> String.join " "
+    let
+        tokensWithColors =
+            tokens |> List.indexedMap colorToken
+
+        coloredTokens =
+            tokensWithColors
+                |> List.map (\( Node _ t, color ) -> color ("[" ++ Debug.toString t ++ "]"))
+                |> String.join " "
+
+        coloredInput =
+            String.foldl
+                (\char ( acc, ( row, column ), tokensQueue ) ->
+                    let
+                        s : String
+                        s =
+                            String.fromChar char
+                    in
+                    case s of
+                        "\n" ->
+                            ( s :: acc, ( row + 1, 1 ), tokensQueue )
+
+                        " " ->
+                            ( s :: acc, ( row, column + 1 ), tokensQueue )
+
+                        _ ->
+                            let
+                                ( color, newTokensQueue ) =
+                                    getCurrentToken ( row, column ) tokensQueue
+                            in
+                            ( Maybe.withDefault identity color s :: acc, ( row, column + 1 ), newTokensQueue )
+                )
+                ( [], ( 1, 1 ), tokensWithColors )
+                input
+                |> Triple.Extra.first
+                |> List.reverse
+                |> String.concat
+    in
+    coloredInput ++ "\n\n" ++ coloredTokens
+
+
+getCurrentToken :
+    ( Int, Int )
+    -> List ( Node token, color )
+    -> ( Maybe color, List ( Node token, color ) )
+getCurrentToken ( row, column ) queue =
+    case queue of
+        [] ->
+            ( Nothing, queue )
+
+        ( Node headRange _, headColor ) :: tail ->
+            if (row < headRange.start.row) || (row == headRange.start.row && column < headRange.start.column) then
+                ( Nothing, queue )
+
+            else if (row > headRange.end.row) || (row == headRange.end.row && column >= headRange.end.column) then
+                getCurrentToken ( row, column ) tail
+
+            else
+                ( Just headColor, queue )
+
+
+colorToken : Int -> Node Token -> ( Node Token, String -> String )
+colorToken i ((Node _ token) as node) =
+    ( node
+    , case token of
+        Token.Ident _ ->
+            Ansi.Color.fontColor Ansi.Color.green
+
+        Token.Number _ ->
+            Ansi.Color.fontColor Ansi.Color.blue
+
+        Token.String _ ->
+            Ansi.Color.fontColor Ansi.Color.red
+
+        _ ->
+            case modBy 3 i of
+                0 ->
+                    Ansi.Color.fontColor Ansi.Color.brightCyan
+
+                1 ->
+                    Ansi.Color.fontColor Ansi.Color.brightYellow
+
+                _ ->
+                    Ansi.Color.fontColor Ansi.Color.brightMagenta
+    )
