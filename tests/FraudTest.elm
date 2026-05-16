@@ -19,7 +19,7 @@ velocity =
     FROM transactions
     WHERE timestamp >= current_date - INTERVAL '30 days'
     GROUP BY 1, 2
-    HAVING count(*) > 10;
+    HAVING count(*) > 10
     """ |> justParseStatement_ "Velocity"
 
 
@@ -36,7 +36,7 @@ velocitySlidingWindow =
         ) AS tx_in_last_5min
     FROM transactions
     QUALIFY tx_in_last_5min >= 5
-    ORDER BY cardholder_id, timestamp;
+    ORDER BY cardholder_id, timestamp
     """ |> justParseStatement_ "Velocity (Sliding Window)"
 
 
@@ -65,7 +65,7 @@ impossibleTravel =
         AND prev_loc <> location
         AND haversine(prev_loc, location)
                 / nullif(EXTRACT(EPOCH FROM (timestamp - prev_ts)), 0)
-                * 3600 > 600;
+                * 3600 > 600
     """ |> justParseStatement_ "Impossible travel"
 
 
@@ -78,7 +78,7 @@ amountAnomalies =
         (amount >= 99.50  AND amount < 100.00)
         OR (amount >= 499.50 AND amount < 500.00)
         OR amount IN (1.00, 5.00, 10.00)
-    ORDER BY cardholder_id, timestamp;
+    ORDER BY cardholder_id, timestamp
     """ |> justParseStatement_ "Amount anomalies"
 
 
@@ -96,7 +96,7 @@ suspiciousMerchants =
     GROUP BY 1, 2
     HAVING count(DISTINCT cardholder_id) > 20
         AND sum(amount) > 5000
-    ORDER BY total_amount DESC;
+    ORDER BY total_amount DESC
     """ |> justParseStatement_ "Suspicious merchants"
 
 
@@ -126,7 +126,7 @@ suspiciousMerchantsSelf =
         unique_cards / nullif(rolling_avg_cards, 0) AS spike_ratio
     FROM with_baseline
     WHERE unique_cards > rolling_avg_cards * 3
-    ORDER BY spike_ratio DESC;
+    ORDER BY spike_ratio DESC
     """ |> justParseStatement_ "Suspicious merchant (self compare)"
 
 
@@ -154,7 +154,7 @@ offHours =
     FROM transactions t
     JOIN cardholder_normal cn USING (cardholder_id)
     WHERE EXTRACT(HOUR FROM t.timestamp) NOT BETWEEN cn.earliest_hour AND cn.latest_hour
-    ORDER BY t.timestamp DESC;
+    ORDER BY t.timestamp DESC
     """ |> justParseStatement_ "Off hours"
 
 
@@ -185,7 +185,7 @@ windowFunctions =
 
     FROM transactions
     WINDOW w AS (PARTITION BY cardholder_id ORDER BY timestamp)
-    ORDER BY cardholder_id, timestamp;
+    ORDER BY cardholder_id, timestamp
     """ |> justParseStatement_ "Window functions"
 
 
@@ -196,5 +196,5 @@ windowExample =
     FROM tx_with_windows
     WHERE tx_of_day >= 5
         AND date(time_of_last, '+60 second') < timestamp
-        AND merchant_change = 'changed';
+        AND merchant_change = 'changed'
     """ |> justParseStatement_ "Window example" |> Test.only
