@@ -75,7 +75,12 @@ type LiteralValue
 
 
 type BinaryOperator
-    = Plus
+    = And
+    | Plus
+    | Eq
+    | Geq
+    | Gt
+    | Leq
     | Lt
 
 
@@ -120,6 +125,21 @@ binaryOperatorToString op =
 
         Lt ->
             "<"
+
+        Leq ->
+            "<="
+
+        Gt ->
+            ">"
+
+        Geq ->
+            ">="
+
+        Eq ->
+            "="
+
+        And ->
+            "AND"
 
 
 functionArgumentsToRope : FunctionArguments -> Rope FunctionName
@@ -168,14 +188,44 @@ literalValueToString literal =
 
 parser : Parser Token Expr
 parser =
+    Parser.succeed (|>)
+        |> Parser.keep relationParser
+        |> Parser.oneOf_
+            [ Parser.succeed (\r l -> and l r)
+                |> Parser.token_ Token.And
+                |> Parser.keep relationParser
+            , Parser.succeed identity
+            ]
+
+
+relationParser : Parser Token Expr
+relationParser =
+    Parser.succeed (|>)
+        |> Parser.keep addSubParser
+        |> Parser.oneOf_
+            [ Parser.succeed (\r l -> lt l r)
+                |> Parser.token_ Token.LessThan
+                |> Parser.keep addSubParser
+            , Parser.succeed (\r l -> leq l r)
+                |> Parser.token_ Token.LessThanOrEquals
+                |> Parser.keep addSubParser
+            , Parser.succeed (\r l -> gt l r)
+                |> Parser.token_ Token.GreaterThan
+                |> Parser.keep addSubParser
+            , Parser.succeed (\r l -> geq l r)
+                |> Parser.token_ Token.GreaterThanOrEquals
+                |> Parser.keep addSubParser
+            , Parser.succeed identity
+            ]
+
+
+addSubParser : Parser Token Expr
+addSubParser =
     Parser.succeed (\l f -> f l)
         |> Parser.keep leafParser
         |> Parser.oneOf_
             [ Parser.succeed (\r l -> add l r)
                 |> Parser.token_ Token.Plus
-                |> Parser.keep leafParser
-            , Parser.succeed (\r l -> lt l r)
-                |> Parser.token_ Token.LessThan
                 |> Parser.keep leafParser
             , Parser.succeed identity
             ]
@@ -355,3 +405,23 @@ add l r =
 lt : Expr -> Expr -> Expr
 lt l r =
     Binary l Lt r
+
+
+leq : Expr -> Expr -> Expr
+leq l r =
+    Binary l Leq r
+
+
+gt : Expr -> Expr -> Expr
+gt l r =
+    Binary l Gt r
+
+
+geq : Expr -> Expr -> Expr
+geq l r =
+    Binary l Geq r
+
+
+and : Expr -> Expr -> Expr
+and l r =
+    Binary l And r
